@@ -1,0 +1,6 @@
+# Vendored paths/files
+include/KHR/khrplatform.h linguist-vendored
+include/glad/glad.h linguist-vendored
+src/glad.c linguist-vendored
+include/stb_image.h linguist-vendored
+src/stb_image.cpp linguist-vendored
