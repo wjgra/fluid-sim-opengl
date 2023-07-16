@@ -1,5 +1,5 @@
-#ifndef _JULIA_TEXTURE_HPP_
-#define _JULIA_TEXTURE_HPP_
+#ifndef _FLUID_TEXTURE_HPP_
+#define _FLUID_TEXTURE_HPP_
 
 #ifdef __EMSCRIPTEN__
 #include <GL/gl.h>

@@ -1,5 +1,5 @@
-#ifndef _JULIA_WINDOW_HPP_
-#define _JULIA_WINDOW_HPP_
+#ifndef _FLUID_WINDOW_HPP_
+#define _FLUID_WINDOW_HPP_
 
 #include <SDL.h>
 #include <SDL_opengl.h>

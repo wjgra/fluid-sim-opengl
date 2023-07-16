@@ -1,5 +1,5 @@
-#ifndef _JULIA_SHADER_PROGRAM_HPP_
-#define _JULIA_SHADER_PROGRAM_HPP_
+#ifndef _FLUID_SHADER_PROGRAM_HPP_
+#define _FLUID_SHADER_PROGRAM_HPP_
 
 #ifdef __EMSCRIPTEN__
 #include <GL/gl.h>

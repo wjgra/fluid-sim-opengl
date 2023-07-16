@@ -4,7 +4,8 @@ AppState::AppState(unsigned int scale) :
     winScale{scale},
     window(winWidth*winScale, winHeight*winScale), 
     context(window.getWindow(), winWidth*winScale, winHeight*winScale),
-    guiState(winWidth*winScale, winHeight*winScale)
+    guiState(winWidth*winScale, winHeight*winScale),
+    fluidRenderer(winWidth*winScale, winHeight*winScale)
 {
 }
 
@@ -50,13 +51,18 @@ void AppState::handleEvents(SDL_Event const&  event){
             break;
     }
     guiState.handleEvents(event);
+    fluidRenderer.handleEvents(event);
+
 }
 
 void AppState::frame(unsigned int frameTime){ // Move to app state frame()
     // Clear buffer
-    glClearColor(0.5f, 0.0f, 0.0f, 1.f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
+    // Draw fluid
+    fluidRenderer.frame(frameTime);
+
     // Draw GUI
     guiState.frame(frameTime);
     

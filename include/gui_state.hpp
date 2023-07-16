@@ -1,5 +1,5 @@
-#ifndef _JULIA_GUI_STATE_HPP_
-#define _JULIA_GUI_STATE_HPP_
+#ifndef _FLUID_GUI_STATE_HPP_
+#define _FLUID_GUI_STATE_HPP_
 
 #ifdef __EMSCRIPTEN__
 #include <GL/gl.h>

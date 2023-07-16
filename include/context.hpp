@@ -1,5 +1,5 @@
-#ifndef _JULIA_CONTEXT_HPP_
-#define _JULIA_CONTEXT_HPP_
+#ifndef _FLUID_CONTEXT_HPP_
+#define _FLUID_CONTEXT_HPP_
 
 #ifdef __EMSCRIPTEN__
 #include <GL/gl.h>

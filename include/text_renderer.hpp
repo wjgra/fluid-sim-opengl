@@ -1,5 +1,5 @@
-#ifndef _JULIA_TEXT_RENDERER_HPP_
-#define _JULIA_TEXT_RENDERER_HPP_
+#ifndef _FLUID_TEXT_RENDERER_HPP_
+#define _FLUID_TEXT_RENDERER_HPP_
 
 #ifdef __EMSCRIPTEN__
 #include <GL/gl.h>

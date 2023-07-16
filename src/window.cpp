@@ -66,7 +66,7 @@ void Window::frame(unsigned int frameTime){
         float avgFrameTime = (float)accumulatedFrameTime / ((float)numFrames*1000.0f); // in ms
         int FPS = int(1000.0f/avgFrameTime);
         SDL_SetWindowTitle(window, 
-            std::string("Julia Set - FPS: "+std::to_string(FPS)+" ("+std::to_string(avgFrameTime)+" ms)").c_str());
+            std::string("Fluid Simulation - FPS: "+std::to_string(FPS)+" ("+std::to_string(avgFrameTime)+" ms)").c_str());
         accumulatedFrameTime = 0;
         numFrames = 0;
     }

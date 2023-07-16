@@ -1,5 +1,5 @@
-#ifndef _JULIA_APP_STATE_HPP_
-#define _JULIA_APP_STATE_HPP_
+#ifndef _FLUID_APP_STATE_HPP_
+#define _FLUID_APP_STATE_HPP_
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -20,7 +20,7 @@
 #include "../include/shader_program.hpp"
 
 #include "../include/gui_state.hpp"
-
+#include "../include/fluid_renderer.hpp"
 
 class AppState{
 public:
@@ -43,5 +43,6 @@ public:
     Window window;
     Context context;
     GUIState guiState;
+    FluidRenderer fluidRenderer;
 };
 #endif
