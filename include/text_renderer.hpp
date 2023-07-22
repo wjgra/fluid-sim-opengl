@@ -1,3 +1,6 @@
+// N.B. CULL_FRONT_FACES doesn't hide the text, so the quad here has the opposite winding to expected (should be CCW)!
+
+
 #ifndef _FLUID_TEXT_RENDERER_HPP_
 #define _FLUID_TEXT_RENDERER_HPP_
 

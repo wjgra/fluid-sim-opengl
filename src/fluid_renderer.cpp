@@ -3,9 +3,12 @@
 FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     fluidShader(".//shaders//fluid.vert", ".//shaders//fluid.frag"),
     screenWidth{width},
-    screenHeight{height}    
+    screenHeight{height},
+    frontCube{width, height},
+    backCube{width, height}    
 {
     setUpBuffers();
+    setUpLevelSet();
 
     fluidShader.useProgram();
     uniformModelTrans = fluidShader.getUniformLocation("model");
@@ -33,6 +36,11 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     glm::mat4 view = glm::mat4(1.0f);
     view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
     glUniformMatrix4fv(uniformViewTrans, 1, GL_FALSE, glm::value_ptr(view));
+
+
+    //Temp
+    setUpFramebuffer(&FBOFront, &frontCube);
+    setUpFramebuffer(&FBOBack, &backCube);
 
 };
 
@@ -89,6 +97,7 @@ void FluidRenderer::frame(unsigned int frameTime){
     glm::mat4 trans = glm::mat4(1.0f);
     trans = glm::translate(trans, glm::vec3(0, 0, 0.0f));
     trans = glm::rotate(trans, glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f));
+    trans = glm::rotate(trans, -1.0f, glm::vec3(1.0f, 0.0f, 0.0f));
     trans = glm::scale(trans, glm::vec3(scale,scale, 1));
     glUniformMatrix4fv(uniformModelTrans, 1, GL_FALSE, glm::value_ptr(trans));
     draw();
@@ -98,4 +107,58 @@ void FluidRenderer::handleEvents(SDL_Event const& event){
     if (event.type == SDL_MOUSEBUTTONDOWN){}
     else if (event.type == SDL_MOUSEBUTTONUP){}
     else if(event.type == SDL_MOUSEMOTION){};
+
+    if (event.type == SDL_KEYDOWN && event.key.keysym.scancode == SDL_SCANCODE_SPACE){
+        //rotSpeed = 0;
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_FRONT);    
+    }
+    else if (event.type == SDL_KEYUP && event.key.keysym.scancode == SDL_SCANCODE_SPACE){
+        //rotSpeed = glm::radians(1500.0f)*1e-6;
+        glDisable(GL_CULL_FACE);
+    }
 };
+
+void FluidRenderer::setUpLevelSet(){
+    const int gridSize = 32;
+    std::vector<float> tempSetData(4*gridSize*gridSize*gridSize, 1.0f);
+    for (auto&& iter = tempSetData.begin(); iter != tempSetData.begin() + 2*gridSize*gridSize*gridSize;){
+        *iter = 0.0f; ++iter;  //R
+        *iter = 0.0f; ++iter;  //G
+        *iter = 0.0f; ++iter;  //B
+        ++iter;  //A
+    }
+    for (auto&& iter = tempSetData.begin() + 2*gridSize*gridSize*gridSize; iter != tempSetData.end();){
+        *iter = 0.0f; ++iter;  //R
+        *iter = 0.0f; ++iter;  //G
+        *iter = 1.0f; ++iter;  //B
+        *iter = 0.5f; ++iter;  //A
+    }
+    glGenTextures(1, &levelSetTexture);
+    glBindTexture(GL_TEXTURE_3D, levelSetTexture);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA, gridSize, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, tempSetData.data());
+    glBindTexture(GL_TEXTURE_3D, 0);
+
+
+};
+
+
+void FluidRenderer::setUpFramebuffer(GLuint* framebuffer, Texture* texture){
+    glGenFramebuffers(1, framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, *framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture->getLocation(), 0);
+
+    // Check complete
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        throw "Failed to initialise framebuffer";
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void FluidRenderer::releaseFramebuffer(GLuint* framebuffer){
+    glDeleteFramebuffers(1, framebuffer);
+}
