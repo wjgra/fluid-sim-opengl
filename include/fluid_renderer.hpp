@@ -125,21 +125,36 @@ private:
     GLint drawingMode = GL_TRIANGLES;
     GLuint VBO, EBO, VAO;
     GLint uniformModelTrans, uniformProjTrans, uniformViewTrans;
+    GLint uniformModelTransRaycast, uniformProjTransRaycast, uniformViewTransRaycast;
     unsigned int screenWidth, screenHeight;
-    ShaderProgram fluidShader;
+    ShaderProgram raycastingPosShader, fluidShader;
 
     // temp
     float horizRot = 0.0f;
     float rotSpeed = glm::radians(1500.0f)*1e-6;
 
-    //fluid
+    //fluid level set
     GLuint levelSetTexture;
+    GLuint uniformLevelSetTexture;
     void setUpLevelSet();
 
     Texture frontCube, backCube;
     GLuint FBOFront, FBOBack;
-     static void setUpFramebuffer(GLuint* framebuffer, Texture* texture);
+    GLuint uniformFrontTexture, uniformBackTexture;
+    static void setUpFramebuffer(GLuint* framebuffer, Texture* texture);
     static void releaseFramebuffer(GLuint* framebuffer);
+
+    // Quad
+    GLuint quadVBO, quadEBO, quadVAO;
+    std::vector<float> const quadVertices {
+        1.0f, 0.0f,   1.0f, 0.0f,   
+        1.0f, 1.0f,   1.0f, 1.0f,   
+        0.0f, 0.0f,   0.0f, 0.0f,   
+        0.0f, 1.0f,   0.0f, 1.0f  
+
+    };
+
+    std::vector<GLuint> const quadElements {0, 1, 2, 3};
 };
 
 #endif
