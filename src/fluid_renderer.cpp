@@ -108,7 +108,7 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     // NEXT VALUES
 
     // level set
-
+    /*
     uniformNextLevelSetTexture = fluidShader.getUniformLocation("nextLevelSetTexture");
     if (uniformNextLevelSetTexture < 0)
         throw "Failed to get location of uniform \'nextLevelSetTexture\'";
@@ -134,7 +134,7 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     glUniform1i(uniformNextPressureTexture, 7);
     glActiveTexture(GL_TEXTURE0 + 7);
     glBindTexture(GL_TEXTURE_3D, nextPressureTexture);
-
+    */
 
     glActiveTexture(GL_TEXTURE0 + 0);
 
@@ -316,8 +316,6 @@ void FluidRenderer::setUpFluidData(){
     
     for (int i = 0; i < gridSize ; ++i){
         for (int j = 0; j < gridSize*gridSize; ++j){
-             float temp= float(gridSize/2 - i);
-             int temp2 = gridSize/2 - i;
            tempSetData[i*gridSize*gridSize + j] = float(gridSize/2 - i); // Int division intentional
         }
     }
@@ -330,7 +328,7 @@ void FluidRenderer::setUpFluidData(){
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_R32F, GL_FLOAT, tempSetData.data());
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RED, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, tempSetData.data());
     glBindTexture(GL_TEXTURE_3D, 0);
 
     // Velocity  - initially zero
@@ -376,7 +374,7 @@ void FluidRenderer::setUpFluidData(){
 
 
     // NEXT VALUES
-    
+    /*
     // level set
     glGenTextures(1, &nextLevelSetTexture);
     glActiveTexture(GL_TEXTURE0 + 5);
@@ -414,7 +412,7 @@ void FluidRenderer::setUpFluidData(){
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     glTexImage3D(GL_TEXTURE_3D, 0, GL_RED, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, tempPressureData.data());
     glBindTexture(GL_TEXTURE_3D, 0);
-    
+    */
 };
 
 

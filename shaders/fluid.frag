@@ -10,9 +10,9 @@ uniform sampler3D levelSetTexture;
 uniform sampler3D velocityTexture;
 uniform sampler3D pressureTexture;
 
-uniform sampler3D nextLevelSetTexture;
-uniform sampler3D nextVelocityTexture;
-uniform sampler3D nextPressureTexture;
+//uniform sampler3D nextLevelSetTexture;
+//uniform sampler3D nextVelocityTexture;
+//uniform sampler3D nextPressureTexture;
 
 const int gridSize = 32;
 const vec4 sampleColour = vec4(0.227f, 0.621f, 0.777f, 0.4f) * vec4(1.0f, 1.0f, 1.0f, 1.5f/gridSize); // Vivid pale blue, with alpha factor
