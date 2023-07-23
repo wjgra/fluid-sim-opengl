@@ -3,13 +3,15 @@
 FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     fluidShader(".//shaders//fluid.vert", ".//shaders//fluid.frag"),
     raycastingPosShader(".//shaders//raycasting_pos.vert", ".//shaders//raycasting_pos.frag"),
+    //integrationShader(".//shaders//integrate_fluid.vert", ".//shaders//integrate_fluid.frag"),
     screenWidth{width},
     screenHeight{height},
     frontCube{width, height},
-    backCube{width, height}    
+    backCube{width, height}
 {
     setUpBuffers();
-    setUpLevelSet();
+    setUpFluidData();
+    //setUpSlices();
 
     raycastingPosShader.useProgram();
     uniformModelTransRaycast = raycastingPosShader.getUniformLocation("model");
@@ -83,7 +85,75 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     glUniform1i(uniformLevelSetTexture, 2);
     glActiveTexture(GL_TEXTURE0 + 2);
     glBindTexture(GL_TEXTURE_3D, levelSetTexture);
+    
+    // velocity field
+    uniformVelocityTexture = fluidShader.getUniformLocation("velocityTexture");
+    if (uniformVelocityTexture < 0)
+        throw "Failed to get location of uniform \'velocityTexture\'";
+
+    glUniform1i(uniformVelocityTexture, 3);
+    glActiveTexture(GL_TEXTURE0 + 3);
+    glBindTexture(GL_TEXTURE_3D, velocityTexture);
+    
+    // pressure field
+    uniformPressureTexture = fluidShader.getUniformLocation("pressureTexture");
+    if (uniformPressureTexture < 0)
+        throw "Failed to get location of uniform \'pressureTexture\'";
+
+    glUniform1i(uniformPressureTexture, 4);
+    glActiveTexture(GL_TEXTURE0 + 4);
+    glBindTexture(GL_TEXTURE_3D, pressureTexture);
+    
+
+    // NEXT VALUES
+
+    // level set
+
+    uniformNextLevelSetTexture = fluidShader.getUniformLocation("nextLevelSetTexture");
+    if (uniformNextLevelSetTexture < 0)
+        throw "Failed to get location of uniform \'nextLevelSetTexture\'";
+
+    glUniform1i(uniformNextLevelSetTexture, 5);
+    glActiveTexture(GL_TEXTURE0 + 5);
+    glBindTexture(GL_TEXTURE_3D, nextLevelSetTexture);
+    
+    // velocity field
+    uniformNextVelocityTexture = fluidShader.getUniformLocation("nextVelocityTexture");
+    if (uniformNextVelocityTexture < 0)
+        throw "Failed to get location of uniform \'nextVelocityTexture\'";
+
+    glUniform1i(uniformNextVelocityTexture, 6);
+    glActiveTexture(GL_TEXTURE0 + 6);
+    glBindTexture(GL_TEXTURE_3D, nextVelocityTexture);
+    
+    // pressure field
+    uniformNextPressureTexture = fluidShader.getUniformLocation("nextPressureTexture");
+    if (uniformNextPressureTexture < 0)
+        throw "Failed to get location of uniform \'nextPressureTexture\'";
+
+    glUniform1i(uniformNextPressureTexture, 7);
+    glActiveTexture(GL_TEXTURE0 + 7);
+    glBindTexture(GL_TEXTURE_3D, nextPressureTexture);
+
+
     glActiveTexture(GL_TEXTURE0 + 0);
+
+    /*
+    // Integration shader
+    integrationShader.useProgram();
+    uniformModelTransIntegrate = integrationShader.getUniformLocation("model");
+    if (uniformModelTransIntegrate < 0)
+       throw "Failed to get location of uniform \'model\'";
+
+    glUniformMatrix4fv(uniformModelTransIntegrate, 1, GL_FALSE, glm::value_ptr(trans));
+
+    uniformProjTransIntegrate = integrationShader.getUniformLocation("projection");
+    if (uniformProjTransIntegrate < 0)
+        throw "Failed to get location of uniform \'projection\'";
+
+    glUniformMatrix4fv(uniformProjTransIntegrate, 1, GL_FALSE, glm::value_ptr(projection));
+    */
+
 
 };
 
@@ -167,6 +237,8 @@ void FluidRenderer::draw(){
 };
 
 void FluidRenderer::frame(unsigned int frameTime){
+    //integrateFluid(frameTime);
+
     horizRot += frameTime * rotSpeed;
     // std::cout << horizRot <<"\n";
     raycastingPosShader.useProgram();
@@ -238,36 +310,111 @@ void FluidRenderer::handleEvents(SDL_Event const& event){
     */
 };
 
-void FluidRenderer::setUpLevelSet(){
-
-
-
-
-    const int gridSize = 32;
-    std::vector<float> tempSetData(4*gridSize*gridSize*gridSize, 1.0f);
-    for (auto&& iter = tempSetData.begin(); iter != tempSetData.begin() + 2*gridSize*gridSize*gridSize;){
-        *iter = 0.0f; ++iter;  //R
-        *iter = 0.0f; ++iter;  //G
-        *iter = 0.0f; ++iter;  //B
-        *iter = 0.0f; ++iter;  //A
+void FluidRenderer::setUpFluidData(){
+    // Level set - initial surface at z = 0.5f
+    std::vector<float> tempSetData(gridSize*gridSize*gridSize);
+    
+    for (int i = 0; i < gridSize ; ++i){
+        for (int j = 0; j < gridSize*gridSize; ++j){
+             float temp= float(gridSize/2 - i);
+             int temp2 = gridSize/2 - i;
+           tempSetData[i*gridSize*gridSize + j] = float(gridSize/2 - i); // Int division intentional
+        }
     }
-    for (auto&& iter = tempSetData.begin() + 2*gridSize*gridSize*gridSize; iter != tempSetData.end();){
-        *iter = 0.0f; ++iter;  //R
-        *iter = 0.0f; ++iter;  //G
-        *iter = 1.0f; ++iter;  //B
-        *iter = 0.5f; ++iter;  //A
-    }
+
     glGenTextures(1, &levelSetTexture);
+    glActiveTexture(GL_TEXTURE0 + 2);
     glBindTexture(GL_TEXTURE_3D, levelSetTexture);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA, gridSize, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, tempSetData.data());
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_R32F, GL_FLOAT, tempSetData.data());
+    glBindTexture(GL_TEXTURE_3D, 0);
+
+    // Velocity  - initially zero
+
+    std::vector<float> tempVelocityData(3*gridSize*gridSize*gridSize, 0.0f);
+
+    glGenTextures(1, &velocityTexture);
+    glActiveTexture(GL_TEXTURE0 + 3);
+    glBindTexture(GL_TEXTURE_3D, velocityTexture);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB, gridSize, gridSize, gridSize, 0, GL_RGB, GL_FLOAT, tempVelocityData.data());
     glBindTexture(GL_TEXTURE_3D, 0);
 
 
+    // Pressure - initially just hydrostatic
+    std::vector<float> tempPressureData(gridSize*gridSize*gridSize, 0.0f);
+ 
+    //values!!!
+    const float gValue = 9.81;
+    const float rho = 997;
+    for (int i = 0; i < gridSize ; ++i){
+        for (int j = 0; j < gridSize*gridSize; ++j){
+            // Each i is a z-slice?
+            tempPressureData[i*gridSize*gridSize + j] = (i / gridSize) * gValue * rho;
+        }
+    }
+
+
+    glGenTextures(1, &pressureTexture);
+    glActiveTexture(GL_TEXTURE0 + 4);
+    glBindTexture(GL_TEXTURE_3D, pressureTexture);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RED, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, tempPressureData.data());
+    glBindTexture(GL_TEXTURE_3D, 0);
+
+
+    // NEXT VALUES
+    
+    // level set
+    glGenTextures(1, &nextLevelSetTexture);
+    glActiveTexture(GL_TEXTURE0 + 5);
+    glBindTexture(GL_TEXTURE_3D, nextLevelSetTexture);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RED, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, tempSetData.data());
+    glBindTexture(GL_TEXTURE_3D, 0);
+
+    // Velocity 
+
+    glGenTextures(1, &nextVelocityTexture);
+    glActiveTexture(GL_TEXTURE0 + 6);
+    glBindTexture(GL_TEXTURE_3D, nextVelocityTexture);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB, gridSize, gridSize, gridSize, 0, GL_RGB, GL_FLOAT, tempVelocityData.data());
+    glBindTexture(GL_TEXTURE_3D, 0);    
+
+    // Pressure
+
+    glGenTextures(1, &nextPressureTexture);
+    glActiveTexture(GL_TEXTURE0 + 7);
+    glBindTexture(GL_TEXTURE_3D, nextPressureTexture);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RED, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, tempPressureData.data());
+    glBindTexture(GL_TEXTURE_3D, 0);
+    
 };
 
 
@@ -284,4 +431,32 @@ void FluidRenderer::setUpFramebuffer(GLuint* framebuffer, Texture* texture){
 
 void FluidRenderer::releaseFramebuffer(GLuint* framebuffer){
     glDeleteFramebuffers(1, framebuffer);
+}
+
+void FluidRenderer::setUpSlices(){
+    // Gen textures and bind to FBOs
+    glGenFramebuffers(1, &FBOVelocitySlice);
+    glGenFramebuffers(1, &FBOPressureSlice);
+    glGenFramebuffers(1, &FBOLevelSetSlice);
+}
+
+void FluidRenderer::integrateFluid(unsigned int frameTime){
+    glBindFramebuffer(GL_FRAMEBUFFER, FBOVelocitySlice);
+    // for each slice, render quad into slice of 3D texture, excluding outer pixels
+    for (int zSlice = 0; zSlice < gridSize; ++zSlice){
+        glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, nextVelocityTexture, 0, zSlice);
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+            throw "Failed to initialise framebuffer";
+
+        glViewport(1, 1, gridSize-1, gridSize-1);
+
+        glBindVertexArray(quadVAO);
+        glDrawElements(GL_TRIANGLE_STRIP, quadElements.size(), GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+
+    }
+
+
+
+    
 }

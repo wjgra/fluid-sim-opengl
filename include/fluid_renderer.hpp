@@ -133,10 +133,21 @@ private:
     float horizRot = 0.0f;
     float rotSpeed = glm::radians(1500.0f)*1e-6;
 
-    //fluid level set
-    GLuint levelSetTexture;
-    GLuint uniformLevelSetTexture;
-    void setUpLevelSet();
+    //fluid data
+    GLuint levelSetTexture, velocityTexture, pressureTexture;
+    GLuint uniformLevelSetTexture, uniformVelocityTexture, uniformPressureTexture;
+    void setUpFluidData();
+
+    int const gridSize = 32;
+    void integrateFluid(unsigned int frameTime);
+    GLuint nextLevelSetTexture, nextVelocityTexture, nextPressureTexture;
+    GLuint uniformNextLevelSetTexture, uniformNextVelocityTexture, uniformNextPressureTexture;
+
+    //ShaderProgram integrationShader;
+    //Texture velocitySlice, pressureSlice, levelSetSlice;
+    void setUpSlices();
+    GLuint FBOVelocitySlice, FBOPressureSlice, FBOLevelSetSlice;
+    GLuint uniformModelTransIntegrate, uniformProjTransIntegrate;
 
     Texture frontCube, backCube;
     GLuint FBOFront, FBOBack;
