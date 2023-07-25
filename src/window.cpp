@@ -3,7 +3,7 @@
 Window::Window(unsigned int width, unsigned int height) : winWidth{width}, winHeight{height}{
     // Initialise SDL
     if (SDL_Init(SDL_INIT_VIDEO) < 0){
-        throw "Failed to initialise SDL";
+        throw std::string("Failed to initialise SDL");
     }
 
     #ifndef __EMSCRIPTEN__
@@ -27,7 +27,7 @@ Window::Window(unsigned int width, unsigned int height) : winWidth{width}, winHe
 
     // Create window
     window = SDL_CreateWindow(
-        "JULIA", 
+        "Fluid Simulation", 
         SDL_WINDOWPOS_CENTERED, 
         SDL_WINDOWPOS_CENTERED, 
         winWidth, 
@@ -35,7 +35,7 @@ Window::Window(unsigned int width, unsigned int height) : winWidth{width}, winHe
         winFlags);
 
     if (!window){
-        throw "Failed to create window";
+        throw std::string("Failed to create window");
     }
 }
 

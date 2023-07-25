@@ -1,135 +1,62 @@
 #include "../include/fluid_renderer.hpp"
 
 FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
-    fluidShader(".//shaders//fluid.vert", ".//shaders//fluid.frag"),
+    renderFluidShader(".//shaders//fluid.vert", ".//shaders//fluid.frag"),
     raycastingPosShader(".//shaders//raycasting_pos.vert", ".//shaders//raycasting_pos.frag"),
-    //integrationShader(".//shaders//integrate_fluid.vert", ".//shaders//integrate_fluid.frag"),
+    //integrateFluidShader(".//shaders//integrate_fluid.vert", ".//shaders//integrate_fluid.frag"),
     screenWidth{width},
     screenHeight{height},
     frontCube{width, height},
     backCube{width, height}
 {
-    setUpBuffers();
+    setDrawableUniformValues();
+
     setUpFluidData();
     //setUpSlices();
 
-    raycastingPosShader.useProgram();
-    uniformModelTransRaycast = raycastingPosShader.getUniformLocation("model");
-    if (uniformModelTransRaycast < 0)
-       throw "Failed to get location of uniform \'model\'";
-
-    //temp
-    glm::mat4 trans = glm::mat4(1.0f);
-    trans = glm::translate(trans, glm::vec3(0, 0, 0.0f));
-    trans = glm::rotate(trans, glm::radians(horizRot), glm::vec3(1.0f, 1.0f, 0.0f));
-    trans = glm::scale(trans, glm::vec3(scale,scale, 1));
-    glUniformMatrix4fv(uniformModelTransRaycast, 1, GL_FALSE, glm::value_ptr(trans));
-
-    uniformProjTransRaycast = raycastingPosShader.getUniformLocation("projection");
-    if (uniformProjTransRaycast < 0)
-        throw "Failed to get location of uniform \'projection\'";
-
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)width/(float)height, 0.1f, 100.0f);
-    glUniformMatrix4fv(uniformProjTransRaycast, 1, GL_FALSE, glm::value_ptr(projection));
-
-    uniformViewTransRaycast = raycastingPosShader.getUniformLocation("view");
-    if (uniformViewTransRaycast < 0)
-       throw "Failed to get location of uniform \'view\'";
-
-    glm::mat4 view = glm::mat4(1.0f);
-    view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-    glUniformMatrix4fv(uniformViewTransRaycast, 1, GL_FALSE, glm::value_ptr(view));
-
-
-    // Temp uniforms - can we make these common?
-
-    fluidShader.useProgram();
-    uniformModelTrans = fluidShader.getUniformLocation("model");
-    if (uniformModelTrans < 0)
-       throw "Failed to get location of uniform \'model\'";
-
-    
-    trans = glm::mat4(1.0f);
-    trans = glm::scale(trans, glm::vec3(screenWidth, screenHeight, 1)); 
-    trans = glm::translate(trans, glm::vec3(0, 0, 0.0f));
-    glUniformMatrix4fv(uniformModelTrans, 1, GL_FALSE, glm::value_ptr(trans));
-
-    //glUniformMatrix4fv(uniformModelTransRaycast, 1, GL_FALSE, glm::value_ptr(trans));
-    projection = glm::ortho(0.0f, (float)screenWidth,  (float)screenHeight, 0.0f, -1.0f, 1.0f);
-    uniformProjTrans = fluidShader.getUniformLocation("projection");
-    if (uniformProjTrans < 0)
-        throw "Failed to get location of uniform \'projection\'";
-
-    glUniformMatrix4fv(uniformProjTrans, 1, GL_FALSE, glm::value_ptr(projection));
-
-    //Temp
-    setUpFramebuffer(&FBOFront, &frontCube);
-    setUpFramebuffer(&FBOBack, &backCube);
-
-    uniformFrontTexture =  fluidShader.getUniformLocation("frontTexture");
-    if (uniformFrontTexture < 0 )
-        throw "Failed to get location of uniform \'frontTexture\'";
-    uniformBackTexture = fluidShader.getUniformLocation("backTexture");
-    if (uniformBackTexture < 0 )
-        throw "Failed to get location of uniform \'backTexture\'";
-    //fluidShader.useProgram();
-    glUniform1i(uniformFrontTexture, 0);
-    glUniform1i(uniformBackTexture, 1);
-
-
-    // level set
-    uniformLevelSetTexture = fluidShader.getUniformLocation("levelSetTexture");
-    if (uniformLevelSetTexture < 0)
-        throw "Failed to get location of uniform \'levelSetTexture\'";
-
-    glUniform1i(uniformLevelSetTexture, 2);
+    renderFluidShader.useProgram();
+    // Bind level set to texture 2
+    levelSet.uniformCurrent = renderFluidShader.getUniformLocation("levelSetTexture");
+    glUniform1i(levelSet.uniformCurrent, 2);
     glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_3D, levelSetTexture);
+    glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent);
     
-    // velocity field
-    uniformVelocityTexture = fluidShader.getUniformLocation("velocityTexture");
-    if (uniformVelocityTexture < 0)
-        throw "Failed to get location of uniform \'velocityTexture\'";
-
-    glUniform1i(uniformVelocityTexture, 3);
+    /*
+    // Bind velocity field to texture 3
+    velocity.uniformCurrent = renderFluidShader.getUniformLocation("velocityTexture");
+    glUniform1i(velocity.uniformCurrent, 3);
     glActiveTexture(GL_TEXTURE0 + 3);
-    glBindTexture(GL_TEXTURE_3D, velocityTexture);
+    glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
     
-    // pressure field
-    uniformPressureTexture = fluidShader.getUniformLocation("pressureTexture");
-    if (uniformPressureTexture < 0)
-        throw "Failed to get location of uniform \'pressureTexture\'";
-
-    glUniform1i(uniformPressureTexture, 4);
+    // Bind pressure filed to texture 4
+    pressure.uniformCurrent = renderFluidShader.getUniformLocation("pressureTexture");
+    glUniform1i(pressure.uniformCurrent, 4);
     glActiveTexture(GL_TEXTURE0 + 4);
-    glBindTexture(GL_TEXTURE_3D, pressureTexture);
-    
+    glBindTexture(GL_TEXTURE_3D, pressure.textureCurrent);
+    */
 
-    // NEXT VALUES
+    // NEXT VALUES /////////////////////
 
     // level set
     /*
-    uniformNextLevelSetTexture = fluidShader.getUniformLocation("nextLevelSetTexture");
-    if (uniformNextLevelSetTexture < 0)
-        throw "Failed to get location of uniform \'nextLevelSetTexture\'";
+    uniformNextLevelSetTexture = renderFluidShader.getUniformLocation("nextLevelSetTexture");
+   
 
     glUniform1i(uniformNextLevelSetTexture, 5);
     glActiveTexture(GL_TEXTURE0 + 5);
     glBindTexture(GL_TEXTURE_3D, nextLevelSetTexture);
     
     // velocity field
-    uniformNextVelocityTexture = fluidShader.getUniformLocation("nextVelocityTexture");
-    if (uniformNextVelocityTexture < 0)
-        throw "Failed to get location of uniform \'nextVelocityTexture\'";
+    uniformNextVelocityTexture = renderFluidShader.getUniformLocation("nextVelocityTexture");
+
 
     glUniform1i(uniformNextVelocityTexture, 6);
     glActiveTexture(GL_TEXTURE0 + 6);
     glBindTexture(GL_TEXTURE_3D, nextVelocityTexture);
     
     // pressure field
-    uniformNextPressureTexture = fluidShader.getUniformLocation("nextPressureTexture");
-    if (uniformNextPressureTexture < 0)
-        throw "Failed to get location of uniform \'nextPressureTexture\'";
+    uniformNextPressureTexture = renderFluidShader.getUniformLocation("nextPressureTexture");
+ 
 
     glUniform1i(uniformNextPressureTexture, 7);
     glActiveTexture(GL_TEXTURE0 + 7);
@@ -142,14 +69,11 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     // Integration shader
     integrationShader.useProgram();
     uniformModelTransIntegrate = integrationShader.getUniformLocation("model");
-    if (uniformModelTransIntegrate < 0)
-       throw "Failed to get location of uniform \'model\'";
+   
 
     glUniformMatrix4fv(uniformModelTransIntegrate, 1, GL_FALSE, glm::value_ptr(trans));
 
     uniformProjTransIntegrate = integrationShader.getUniformLocation("projection");
-    if (uniformProjTransIntegrate < 0)
-        throw "Failed to get location of uniform \'projection\'";
 
     glUniformMatrix4fv(uniformProjTransIntegrate, 1, GL_FALSE, glm::value_ptr(projection));
     */
@@ -157,135 +81,104 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
 
 };
 
-FluidRenderer::~FluidRenderer(){
-    releaseBuffers();
-};
-
-void FluidRenderer::setUpBuffers(){
-    // Generate buffers
+// Generates VAO and VBO for Drawable object and copies vertex/UV data into VBO
+// @param vertDim = dimension of vertex data (used for calculating stride)
+void FluidRenderer::Drawable::setUpBuffers(unsigned int vertDim){
+    if (vertDim != 2 && vertDim != 3){
+        throw std::string("Failed to set up buffer object. Vertex dimension must be 2 or 3.\n");
+    }
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
-
-    // Bind VAO
     glBindVertexArray(VAO); 
 
     // Bind VBO and copy vertex data into VBO
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    unsigned int stride = vertDim + 2; // Length of vert and UV data    
     // Verts
     glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(float), vertices.data(), GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, vertDim, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)0);
     // UVs
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3*sizeof(float)));
-
-    // Bind EBO and copy element data into EBO
-    // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    // glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.size()*sizeof(GLuint), elements.data(), GL_STATIC_DRAW);
-
-    // Unbind VAO
-    glBindVertexArray(0);
-
-
-    // Quads
-      // Generate buffers
-    glGenVertexArrays(1, &quadVAO);
-    glGenBuffers(1, &quadVBO);
-    glGenBuffers(1, &quadEBO);
-
-    // Bind VAO
-    glBindVertexArray(quadVAO); 
-
-    // Bind VBO and copy vertex data into VBO
-    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-    // Verts
-    glBufferData(GL_ARRAY_BUFFER, quadVertices.size()*sizeof(float), quadVertices.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    // UVs
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2*sizeof(float)));
-
-    // Bind EBO and copy element data into EBO
-     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
-      glBufferData(GL_ELEMENT_ARRAY_BUFFER, quadElements.size()*sizeof(GLuint), quadElements.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)(vertDim*sizeof(float)));
 
     glBindVertexArray(0);
+}
 
-
-};
-
-void FluidRenderer::releaseBuffers(){
-    // Delete buffers
+void FluidRenderer::Drawable::releaseBuffers(){
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &EBO);
+}
 
-    // Quads
-     glDeleteVertexArrays(1, &quadVAO);
-    glDeleteBuffers(1, &quadVBO);
-    glDeleteBuffers(1, &quadEBO);
-};
-
-void FluidRenderer::draw(){
+void FluidRenderer::Drawable::draw(GLint drawingMode){
     glBindVertexArray(VAO);
-    raycastingPosShader.useProgram();
-    //glDrawElements(drawingMode, elements.size(), GL_UNSIGNED_INT, 0);
-    glDrawArrays(drawingMode, 0, 36);
+    glDrawArrays(drawingMode, 0, vertices.size());
     glBindVertexArray(0);
-};
+}
+
+void FluidRenderer::RenderTarget::setUpBuffers(){
+    glGenFramebuffers(1, &FBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture.getLocation(), 0);
+
+    // Check complete
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        throw std::string("Failed to initialise framebuffer");
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void FluidRenderer::RenderTarget::releaseBuffers(){
+    glDeleteFramebuffers(1, &FBO);
+}
 
 void FluidRenderer::frame(unsigned int frameTime){
     //integrateFluid(frameTime);
 
     horizRot += frameTime * rotSpeed;
-    // std::cout << horizRot <<"\n";
     raycastingPosShader.useProgram();
-    glm::mat4 trans = glm::mat4(1.0f);
-    trans = glm::translate(trans, glm::vec3(0, 0, 0.0f));
-    trans = glm::rotate(trans, glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f));
-    trans = glm::rotate(trans, -1.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-    trans = glm::scale(trans, glm::vec3(scale,scale, 1));
-    glUniformMatrix4fv(uniformModelTransRaycast, 1, GL_FALSE, glm::value_ptr(trans));
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, glm::vec3(0, 0, 0.0f));
+    model = glm::rotate(model, glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f));
+    model = glm::rotate(model, -1.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+    model = glm::scale(model, glm::vec3(scale,scale, 1));
+    glUniformMatrix4fv(raycastingPosUniforms.modelTrans, 1, GL_FALSE, glm::value_ptr(model));
 
     // Draw front to texture
-    glBindFramebuffer(GL_FRAMEBUFFER, FBOFront);
+    glBindFramebuffer(GL_FRAMEBUFFER, frontCube.FBO);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // glDisable(GL_CULL_FACE);
     // No depth buffer, so have to cull back faces
     glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    draw();
+    glCullFace(GL_BACK);//raycastingPosShader.useProgram(); // do I need to reactivate this?
+    cube.draw(GL_TRIANGLES);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, FBOBack);
+    glBindFramebuffer(GL_FRAMEBUFFER, backCube.FBO);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     //glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
-    draw();
-
+    cube.draw(GL_TRIANGLES);;
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
     glDisable(GL_CULL_FACE); 
     
-    fluidShader.useProgram();
-    //glUniformMatrix4fv(uniformModelTrans, 1, GL_FALSE, glm::value_ptr(trans));
+    renderFluidShader.useProgram();
+
     glActiveTexture(GL_TEXTURE0 + 0);
-    frontCube.bind();
+    frontCube.texture.bind();
     glActiveTexture(GL_TEXTURE0 + 1);
-    backCube.bind();
-    glBindVertexArray(quadVAO);
+    backCube.texture.bind();
+    quad.draw(GL_TRIANGLES);
+    /*glBindVertexArray(quadVAO);
     glDrawElements(GL_TRIANGLE_STRIP, quadElements.size(), GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
+    glBindVertexArray(0);*/
 
     // unbind
     glActiveTexture(GL_TEXTURE0 + 0);
-    frontCube.unbind();
+    frontCube.texture.unbind();
     glActiveTexture(GL_TEXTURE0 + 1);
-    backCube.unbind();
+    backCube.texture.unbind();
 
     glActiveTexture(GL_TEXTURE0 + 0);
     
@@ -310,7 +203,56 @@ void FluidRenderer::handleEvents(SDL_Event const& event){
     */
 };
 
-void FluidRenderer::setUpFluidData(){
+
+void FluidRenderer::setDrawableUniformValues(){
+    // Get uniform locations and set values for raycastingPosShader
+    raycastingPosShader.useProgram();
+
+    // Model matrix
+    raycastingPosUniforms.modelTrans = raycastingPosShader.getUniformLocation("model");
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::scale(model, glm::vec3(scale,scale, 1));
+    glUniformMatrix4fv(raycastingPosUniforms.modelTrans, 1, GL_FALSE, glm::value_ptr(model));
+
+    // Projection matrix
+    raycastingPosUniforms.projTrans = raycastingPosShader.getUniformLocation("projection");
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)screenWidth/(float)screenHeight, 0.1f, 100.0f);
+    glUniformMatrix4fv(raycastingPosUniforms.projTrans, 1, GL_FALSE, glm::value_ptr(projection));
+
+    // View matrix
+    raycastingPosUniforms.viewTrans = raycastingPosShader.getUniformLocation("view");
+    glm::mat4 view = glm::mat4(1.0f);
+    view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f)); // Link to camera struct
+    glUniformMatrix4fv(raycastingPosUniforms.viewTrans, 1, GL_FALSE, glm::value_ptr(view));
+
+
+    // Get uniform locations and set values for renderFluidShader - note symmetry with above (can we condense?)
+    renderFluidShader.useProgram();
+
+    // Model matrix
+    renderFluidUniforms.modelTrans = renderFluidShader.getUniformLocation("model");
+    model = glm::mat4(1.0f);
+    model = glm::scale(model, glm::vec3(screenWidth, screenHeight, 1)); 
+    model = glm::translate(model, glm::vec3(0, 0, 0.0f));
+    glUniformMatrix4fv(renderFluidUniforms.modelTrans, 1, GL_FALSE, glm::value_ptr(model));
+
+    // Projection matrix
+    projection = glm::ortho(0.0f, (float)screenWidth,  (float)screenHeight, 0.0f, -1.0f, 1.0f);
+    renderFluidUniforms.projTrans = renderFluidShader.getUniformLocation("projection");
+    glUniformMatrix4fv(renderFluidUniforms.projTrans, 1, GL_FALSE, glm::value_ptr(projection));
+
+    // No view matrix required in orthogonal projection
+
+    // Set up uniforms for 'cube vectors'
+    frontCube.uniformTexture =  renderFluidShader.getUniformLocation("frontTexture");
+    backCube.uniformTexture = renderFluidShader.getUniformLocation("backTexture");
+    renderFluidShader.useProgram();
+    glUniform1i(frontCube.uniformTexture, 0);
+    glUniform1i(backCube.uniformTexture, 1);
+}
+
+// Generate 3D textures and set initial values for level set, velocity and pressure
+void FluidRenderer::setUpFluidData(){    
     // Level set - initial surface at z = 0.5f
     std::vector<float> tempSetData(gridSize*gridSize*gridSize);
     
@@ -320,9 +262,9 @@ void FluidRenderer::setUpFluidData(){
         }
     }
 
-    glGenTextures(1, &levelSetTexture);
+    glGenTextures(1, &levelSet.textureCurrent);
     glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_3D, levelSetTexture);
+    glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -335,9 +277,9 @@ void FluidRenderer::setUpFluidData(){
 
     std::vector<float> tempVelocityData(3*gridSize*gridSize*gridSize, 0.0f);
 
-    glGenTextures(1, &velocityTexture);
+    glGenTextures(1, &velocity.textureCurrent);
     glActiveTexture(GL_TEXTURE0 + 3);
-    glBindTexture(GL_TEXTURE_3D, velocityTexture);
+    glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -351,8 +293,7 @@ void FluidRenderer::setUpFluidData(){
     std::vector<float> tempPressureData(gridSize*gridSize*gridSize, 0.0f);
  
     //values!!!
-    const float gValue = 9.81;
-    const float rho = 997;
+    
     for (int i = 0; i < gridSize ; ++i){
         for (int j = 0; j < gridSize*gridSize; ++j){
             // Each i is a z-slice?
@@ -360,10 +301,9 @@ void FluidRenderer::setUpFluidData(){
         }
     }
 
-
-    glGenTextures(1, &pressureTexture);
+    glGenTextures(1, &pressure.textureCurrent);
     glActiveTexture(GL_TEXTURE0 + 4);
-    glBindTexture(GL_TEXTURE_3D, pressureTexture);
+    glBindTexture(GL_TEXTURE_3D, pressure.textureCurrent);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -415,7 +355,7 @@ void FluidRenderer::setUpFluidData(){
     */
 };
 
-
+/*
 void FluidRenderer::setUpFramebuffer(GLuint* framebuffer, Texture* texture){
     glGenFramebuffers(1, framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, *framebuffer);
@@ -430,7 +370,9 @@ void FluidRenderer::setUpFramebuffer(GLuint* framebuffer, Texture* texture){
 void FluidRenderer::releaseFramebuffer(GLuint* framebuffer){
     glDeleteFramebuffers(1, framebuffer);
 }
+*/
 
+/*
 void FluidRenderer::setUpSlices(){
     // Gen textures and bind to FBOs
     glGenFramebuffers(1, &FBOVelocitySlice);
@@ -457,4 +399,4 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
 
 
     
-}
+}*/

@@ -7,8 +7,8 @@ uniform sampler2D frontTexture;
 uniform sampler2D backTexture;
 
 uniform sampler3D levelSetTexture;
-uniform sampler3D velocityTexture;
-uniform sampler3D pressureTexture;
+//uniform sampler3D velocityTexture;
+//uniform sampler3D pressureTexture;
 
 //uniform sampler3D nextLevelSetTexture;
 //uniform sampler3D nextVelocityTexture;
@@ -32,7 +32,6 @@ void main()
     float len = length(dir);
     dir /= len;
     
-    //FragColor = vec4(dir, 1.0f); return;
 
     vec3 marchingPoint = frontPos.xyz;
 
@@ -55,22 +54,9 @@ void main()
         }
         
         
-
-        /*if (frontPos.z < 0.5f && backPos.z > 0.5f){
-            // finalColour = vec4(1.0f, 0.0f, 0.0f, 1.0f);
-            if (true ){
-                //finalColour = vec4(1.0f, 0.0f, 0.0f, 1.0f);
-                finalColour = vec4(dir, 1.0f);
-                break;
-            }
-        }*/
-        
     }
 
-    //if (len < 0.1f)
-        //finalColour = vec4(1.0f, 0.0f, 0.0f, 1.0f);
-
-    FragColor = finalColour;//vec4(len, len, len, 1.0f) * samp;
+    FragColor = finalColour;
 
 
 

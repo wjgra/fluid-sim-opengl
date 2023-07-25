@@ -7,12 +7,8 @@ TextRenderer::TextRenderer() :
     setUpBuffers();
     shader.useProgram();
     uniformModelTrans = shader.getUniformLocation("model");
-    if (uniformModelTrans < 0)
-       throw "Failed to get get location of uniform \'model\'";
 
     uniformProjTrans = shader.getUniformLocation("projection");
-    if (uniformProjTrans < 0)
-        throw "Failed to get get location of uniform \'projection\'";
 
     // Set orthogonal projection matrix
     glm::mat4 projection = glm::ortho(0.0f, 640.0f,  480.0f, 0.0f, -1.0f, 1.0f); // needs updating for screenSize
@@ -21,8 +17,6 @@ TextRenderer::TextRenderer() :
     setPosition(100.0f, 320.0f, 240.0f);
 
     uniformTextureCoordOffset = shader.getUniformLocation("textureCoordOffset");
-    if (uniformTextureCoordOffset < 0)
-        throw "Failed to get get location of uniform \'uniformTextureCoordOffset\'";
 }
 
 TextRenderer::~TextRenderer(){

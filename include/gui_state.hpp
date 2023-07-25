@@ -22,7 +22,7 @@ public:
     void handleEvents(const SDL_Event& event);
 private:
     unsigned int width, height;
-    void drawLocation(); // Take Julia set as param
+    void drawLocation();
     TextRenderer textRen;
 };
 

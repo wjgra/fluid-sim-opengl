@@ -36,7 +36,7 @@ int main(){
         emscripten_set_main_loop_arg(&mainLoopCallback, &appState, 0, 1);
         #endif
     }
-    catch (const char* exception){
+    catch (std::string exception){
         // Exit if failed to initialise appState
         std::cerr << exception << "\n";
         return EXIT_FAILURE;
