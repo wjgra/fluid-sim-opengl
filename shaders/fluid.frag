@@ -20,7 +20,7 @@ const vec4 sampleColour = vec4(0.227f, 0.621f, 0.777f, 0.4f) * vec4(1.0f, 1.0f, 
 void main()
 {
     //FragColor = texture(frontTexture, TextureCoord);
-    
+
     vec4 frontPos = texture(frontTexture, TextureCoord);
     vec4 backPos = texture(backTexture, TextureCoord);
     vec3 dir = (texture(backTexture, TextureCoord) - frontPos).xyz;
@@ -28,6 +28,21 @@ void main()
     //if (frontPos.a <= 0.0f)
        // discard;
     // Currently this reduces performance
+
+    // Draw zero planes - can use this technique to draw 'box' if desired
+    if (frontPos.y < 0.01f && frontPos.y > 0.0f){
+        FragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+        return;
+    }
+    else if( frontPos.x < 0.01f && frontPos.x > 0.0f){
+        FragColor = vec4(0.0f, 0.0f, 1.0f, 1.0f);
+        return;
+    }
+    else if( frontPos.z < 0.01f && frontPos.z > 0.0f){
+        FragColor = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+        return;
+    }
+    // End zero planes
 
     float len = length(dir);
     dir /= len;

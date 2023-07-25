@@ -134,14 +134,21 @@ void FluidRenderer::RenderTarget::releaseBuffers(){
 void FluidRenderer::frame(unsigned int frameTime){
     //integrateFluid(frameTime);
 
-    horizRot += frameTime * rotSpeed;
+    horizRot += frameTime * horizRotSpeed;
     raycastingPosShader.useProgram();
-    glm::mat4 model = glm::mat4(1.0f);
+    /*glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, glm::vec3(0, 0, 0.0f));
     model = glm::rotate(model, glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f));
-    model = glm::rotate(model, -1.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+    model = glm::rotate(model, vertRot, glm::vec3(1.0f, 0.0f, 0.0f));
     model = glm::scale(model, glm::vec3(scale,scale, 1));
-    glUniformMatrix4fv(raycastingPosUniforms.modelTrans, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(raycastingPosUniforms.modelTrans, 1, GL_FALSE, glm::value_ptr(model));*/
+
+    // Temp rotation
+    camera.pos = glm::vec3(glm::rotate(glm::mat4(1.0f), glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0.0f, 2.0f, -3.0f, 1.0f));
+    camera.updateMatrix();
+
+   //glm::mat4 view = glm::lookAt(glm::vec3(2.0f*cos(glm::radians(horizRot)), 2.0f, -2.0f*sin(glm::radians(horizRot))), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(2.0f*sin(glm::radians(horizRot)), 2.0f, 2.0f*cos(glm::radians(horizRot))));
+    glUniformMatrix4fv(raycastingPosUniforms.viewTrans, 1, GL_FALSE, glm::value_ptr(camera.cameraMat));
 
     // Draw front to texture
     glBindFramebuffer(GL_FRAMEBUFFER, frontCube.FBO);
@@ -192,12 +199,12 @@ void FluidRenderer::handleEvents(SDL_Event const& event){
     
     /*
     if (event.type == SDL_KEYDOWN && event.key.keysym.scancode == SDL_SCANCODE_SPACE){
-        //rotSpeed = 0;
+        //horizRotSpeed = 0;
         glEnable(GL_CULL_FACE);
         glCullFace(GL_FRONT);    
     }
     else if (event.type == SDL_KEYUP && event.key.keysym.scancode == SDL_SCANCODE_SPACE){
-        //rotSpeed = glm::radians(1500.0f)*1e-6;
+        //horizRotSpeed = glm::radians(1500.0f)*1e-6;
         glDisable(GL_CULL_FACE);
     }
     */
@@ -207,7 +214,7 @@ void FluidRenderer::handleEvents(SDL_Event const& event){
 void FluidRenderer::setDrawableUniformValues(){
     // Get uniform locations and set values for raycastingPosShader
     raycastingPosShader.useProgram();
-
+    
     // Model matrix
     raycastingPosUniforms.modelTrans = raycastingPosShader.getUniformLocation("model");
     glm::mat4 model = glm::mat4(1.0f);
@@ -221,8 +228,8 @@ void FluidRenderer::setDrawableUniformValues(){
 
     // View matrix
     raycastingPosUniforms.viewTrans = raycastingPosShader.getUniformLocation("view");
-    glm::mat4 view = glm::mat4(1.0f);
-    view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f)); // Link to camera struct
+    camera.updateMatrix();
+    glm::mat4 view = camera.cameraMat;//::lookAt(glm::vec3(0.0f, 2.0f, -2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 2.0f, 2.0f));
     glUniformMatrix4fv(raycastingPosUniforms.viewTrans, 1, GL_FALSE, glm::value_ptr(view));
 
 
@@ -395,8 +402,4 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
         glBindVertexArray(0);
 
     }
-
-
-
-    
 }*/
