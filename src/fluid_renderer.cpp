@@ -1,13 +1,14 @@
 #include "../include/fluid_renderer.hpp"
 
 FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
-    renderFluidShader(".//shaders//fluid.vert", ".//shaders//fluid.frag"),
-    raycastingPosShader(".//shaders//raycasting_pos.vert", ".//shaders//raycasting_pos.frag"),
-    //integrateFluidShader(".//shaders//integrate_fluid.vert", ".//shaders//integrate_fluid.frag"),
     screenWidth{width},
     screenHeight{height},
     frontCube{width, height},
-    backCube{width, height}
+    backCube{width, height},
+    backgroundPlaneShader{".//shaders//background_plane.vert", ".//shaders//background_plane.frag"},
+    raycastingPosShader(".//shaders//raycasting_pos.vert", ".//shaders//raycasting_pos.frag"),
+    renderFluidShader(".//shaders//fluid.vert", ".//shaders//fluid.frag")
+    //integrateFluidShader(".//shaders//integrate_fluid.vert", ".//shaders//integrate_fluid.frag")
 {
     setDrawableUniformValues();
 
@@ -84,8 +85,8 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
 // Generates VAO and VBO for Drawable object and copies vertex/UV data into VBO
 // @param vertDim = dimension of vertex data (used for calculating stride)
 void FluidRenderer::Drawable::setUpBuffers(unsigned int vertDim){
-    if (vertDim != 2 && vertDim != 3){
-        throw std::string("Failed to set up buffer object. Vertex dimension must be 2 or 3.\n");
+    if (vertDim < 2 || vertDim > 4){
+        throw std::string("Failed to set up buffer object. Vertex dimension must be 2, 3 or 4.\n");
     }
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -132,10 +133,19 @@ void FluidRenderer::RenderTarget::releaseBuffers(){
 }
 
 void FluidRenderer::frame(unsigned int frameTime){
+    horizRot += frameTime * horizRotSpeed;
+    
+    camera.pos = glm::vec3(glm::rotate(glm::mat4(1.0f), glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0.0f, 2.0f, 3.0f, 1.0f));
+    camera.updateMatrix();
+    
+    glDisable(GL_CULL_FACE);
+    backgroundPlaneShader.useProgram();
+    glUniformMatrix4fv(backgroundPlaneUniforms.viewTrans, 1, GL_FALSE, glm::value_ptr(camera.viewMatrix));
+    backgroundPlane.draw(GL_TRIANGLES);
+
     //integrateFluid(frameTime);
 
-    horizRot += frameTime * horizRotSpeed;
-    raycastingPosShader.useProgram();
+    
     /*glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, glm::vec3(0, 0, 0.0f));
     model = glm::rotate(model, glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -144,11 +154,9 @@ void FluidRenderer::frame(unsigned int frameTime){
     glUniformMatrix4fv(raycastingPosUniforms.modelTrans, 1, GL_FALSE, glm::value_ptr(model));*/
 
     // Temp rotation
-    camera.pos = glm::vec3(glm::rotate(glm::mat4(1.0f), glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0.0f, 2.0f, -3.0f, 1.0f));
-    camera.updateMatrix();
-
+    raycastingPosShader.useProgram();
    //glm::mat4 view = glm::lookAt(glm::vec3(2.0f*cos(glm::radians(horizRot)), 2.0f, -2.0f*sin(glm::radians(horizRot))), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(2.0f*sin(glm::radians(horizRot)), 2.0f, 2.0f*cos(glm::radians(horizRot))));
-    glUniformMatrix4fv(raycastingPosUniforms.viewTrans, 1, GL_FALSE, glm::value_ptr(camera.cameraMat));
+    glUniformMatrix4fv(raycastingPosUniforms.viewTrans, 1, GL_FALSE, glm::value_ptr(camera.viewMatrix));
 
     // Draw front to texture
     glBindFramebuffer(GL_FRAMEBUFFER, frontCube.FBO);
@@ -229,8 +237,29 @@ void FluidRenderer::setDrawableUniformValues(){
     // View matrix
     raycastingPosUniforms.viewTrans = raycastingPosShader.getUniformLocation("view");
     camera.updateMatrix();
-    glm::mat4 view = camera.cameraMat;//::lookAt(glm::vec3(0.0f, 2.0f, -2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 2.0f, 2.0f));
+    glm::mat4 view = camera.viewMatrix;//::lookAt(glm::vec3(0.0f, 2.0f, -2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 2.0f, 2.0f));
     glUniformMatrix4fv(raycastingPosUniforms.viewTrans, 1, GL_FALSE, glm::value_ptr(view));
+
+    // Get uniform locations and set values for backgroundPlaneShader
+    backgroundPlaneShader.useProgram();
+    
+    // Model matrix
+    backgroundPlaneUniforms.modelTrans = backgroundPlaneShader.getUniformLocation("model");
+    model = glm::mat4(1.0f);
+    model = glm::scale(model, glm::vec3(planeSize * scale, planeSize * scale, planeSize * scale));
+    model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    //model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    model = glm::translate(model, glm::vec3(0.0f, 0.0f, -0.5f / planeSize));
+    glUniformMatrix4fv(backgroundPlaneUniforms.modelTrans, 1, GL_FALSE, glm::value_ptr(model));
+
+    // Projection matrix
+    backgroundPlaneUniforms.projTrans = backgroundPlaneShader.getUniformLocation("projection");
+    glUniformMatrix4fv(backgroundPlaneUniforms.projTrans, 1, GL_FALSE, glm::value_ptr(projection));
+
+    // View matrix
+    backgroundPlaneUniforms.viewTrans = backgroundPlaneShader.getUniformLocation("view");
+    glUniformMatrix4fv(backgroundPlaneUniforms.viewTrans, 1, GL_FALSE, glm::value_ptr(view));
+
 
 
     // Get uniform locations and set values for renderFluidShader - note symmetry with above (can we condense?)
@@ -244,7 +273,7 @@ void FluidRenderer::setDrawableUniformValues(){
     glUniformMatrix4fv(renderFluidUniforms.modelTrans, 1, GL_FALSE, glm::value_ptr(model));
 
     // Projection matrix
-    projection = glm::ortho(0.0f, (float)screenWidth,  (float)screenHeight, 0.0f, -1.0f, 1.0f);
+    projection = glm::ortho(0.0f, (float)screenWidth,  0.0f, (float)screenHeight, -1.0f, 1.0f);
     renderFluidUniforms.projTrans = renderFluidShader.getUniformLocation("projection");
     glUniformMatrix4fv(renderFluidUniforms.projTrans, 1, GL_FALSE, glm::value_ptr(projection));
 

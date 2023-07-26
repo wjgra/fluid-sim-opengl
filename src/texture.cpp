@@ -1,6 +1,6 @@
 #include "../include/texture.hpp"
 
-Texture::Texture(unsigned int w, unsigned int h) : width{w}, height{h}{
+Texture::Texture(unsigned int w, unsigned int h) : width(w), height(h){
     glGenTextures(1, &texture);
     //glBindTexture(GL_TEXTURE_2D, texture);
     bind();

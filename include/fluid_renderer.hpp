@@ -25,7 +25,14 @@
 class FluidRenderer{
 public:
     FluidRenderer(unsigned int width, unsigned int height);
-    // 
+    void frame(unsigned int frameTime);
+    void handleEvents(SDL_Event const& event);
+private:
+    void setDrawableUniformValues();
+    void setUpFluidData(); // !!Lots of code duplication here
+    void integrateFluid(unsigned int timeStep); // Consider making frame-independent. Should this be a member of simulated quantity? Does it differ for different quantities (e.g. velocity) is number of components an issue?
+    void renderFluid();
+
     unsigned int const screenWidth, screenHeight;
     float const scale = 1; //scale of cube
     int const gridSize = 32;
@@ -34,7 +41,8 @@ public:
     // cube location - change this to camera...
     float horizRot = 0.0f;
     float vertRot = 0.0f;
-    float horizRotSpeed = glm::radians(1500.0f)*1e-6;
+    float horizRotSpeed = glm::radians(6000.0f)*1e-7;
+    float const planeSize = 10.0f;
     
     struct Drawable{
         Drawable(std::vector<float> const& verts, unsigned int vertexDimension) : vertices{verts}{setUpBuffers(vertexDimension);};
@@ -98,26 +106,50 @@ public:
         0.0f, 0.0f,   0.0f, 0.0f,   // SW
         0.0f, 1.0f,   0.0f, 1.0f    // NW
     }, 2u};
+    Drawable backgroundPlane{{
+        /*// First quadrant
+        0.0f, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f, 0.0f,     0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,     0.0f, 0.0f,
+        // Second quadrant
+        0.0f, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,     0.0f, 0.0f,
+        -1.0f, 0.0f, 0.0f, 0.0f,    0.0f, 0.0f,
+        // Third quadrant
+        0.0f, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f,
+        -1.0f, 0.0f, 0.0f, 0.0f,    0.0f, 0.0f,
+        0.0f,  0.0f,-1.0f, 0.0f,    0.0f, 0.0f,
+        // Fourth quadrant
+        0.0f, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f,
+        0.0f, 0.0f,-1.0f, 0.0f,     0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f, 0.0f,     0.0f, 0.0f*/
+
+        -0.5f, -0.5f,      0.0f, 0.0f,
+        0.5f,  -0.5f,     1.0f, 0.0f,
+        -0.5f,  0.5f,      0.0f, 1.0f,
+
+        -0.5f, 0.5f,     0.0f, 1.0f,
+        0.5f, -0.5f,      1.0f, 0.0f,
+        0.5f, 0.5,     1.0f, 1.0f
+
+
+    }, 2u};
     struct Camera{
-        glm::vec3 pos = glm::vec3(0.0f, 2.0f, -3.0f);
+        glm::vec3 pos = glm::vec3(0.0f, 2.0f, 3.0f);
         glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.0f);
-
-        
-
-
-        glm::mat4 cameraMat; //???
+        glm::mat4 viewMatrix; //???
         float yaw = 0.0f, pitch = 1.0f;
         void updateMatrix(){
             //glm::vec3 dir = glm::normalize(pos - target);
             //glm::vec3 right = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), dir));
-            glm::vec3 up = glm::vec3(0.0f, -1.0f, 0.0f);//glm::cross(dir, right);
-            cameraMat = glm::lookAt(pos, target, up);
+            glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);//glm::cross(dir, right);
+            viewMatrix = glm::lookAt(pos, target, up);
         }
     } camera;
 
     struct DrawableUniformLocations{
         GLint modelTrans, projTrans, viewTrans;
-    } renderFluidUniforms, raycastingPosUniforms; // Possibly separate into different struct types?
+    } renderFluidUniforms, raycastingPosUniforms, backgroundPlaneUniforms; // Possibly separate into different struct types?
 
     struct RenderTarget{
         RenderTarget(unsigned int width, unsigned int height) : texture{width, height} {setUpBuffers();};
@@ -134,15 +166,7 @@ public:
         GLuint textureCurrent, uniformCurrent, textureNext, uniformNext;
     } levelSet, velocity, pressure;
 
-    ShaderProgram raycastingPosShader, renderFluidShader;//, integrateFluidShader;
-
-    void frame(unsigned int frameTime);
-    void handleEvents(SDL_Event const& event);
-private:
-    void setDrawableUniformValues();
-    void setUpFluidData(); // !!Lots of code duplication here
-    void integrateFluid(unsigned int timeStep); // Consider making frame-independent. Should this be a member of simulated quantity? Does it differ for different quantities (e.g. velocity) is number of components an issue?
-    void renderFluid();
+    ShaderProgram backgroundPlaneShader, raycastingPosShader, renderFluidShader;//, integrateFluidShader;
 };
 
 #endif
