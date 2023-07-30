@@ -5,8 +5,9 @@ layout (location = 1 ) in vec2 textureCoord;
 uniform mat4 model;
 uniform mat4 projection;
 
-out vec3 cubePos;
 out vec2 TextureCoord;
+//out vec3 FragPos;
+
 
 void main()
 {

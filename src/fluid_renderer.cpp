@@ -13,7 +13,6 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     setDrawableUniformValues();
 
     setUpFluidData();
-    //setUpSlices();
 
     renderFluidShader.useProgram();
     // Bind level set to texture 2
@@ -143,7 +142,7 @@ void FluidRenderer::frame(unsigned int frameTime){
     glUniformMatrix4fv(backgroundPlaneUniforms.viewTrans, 1, GL_FALSE, glm::value_ptr(camera.viewMatrix));
     backgroundPlane.draw(GL_TRIANGLES);
 
-    //integrateFluid(frameTime);
+    integrateFluid(frameTime);
 
     
     /*glm::mat4 model = glm::mat4(1.0f);
@@ -226,7 +225,7 @@ void FluidRenderer::setDrawableUniformValues(){
     // Model matrix
     raycastingPosUniforms.modelTrans = raycastingPosShader.getUniformLocation("model");
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::scale(model, glm::vec3(scale,scale, 1));
+    model = glm::scale(model, glm::vec3(scale, scale, scale));
     glUniformMatrix4fv(raycastingPosUniforms.modelTrans, 1, GL_FALSE, glm::value_ptr(model));
 
     // Projection matrix
@@ -246,10 +245,10 @@ void FluidRenderer::setDrawableUniformValues(){
     // Model matrix
     backgroundPlaneUniforms.modelTrans = backgroundPlaneShader.getUniformLocation("model");
     model = glm::mat4(1.0f);
-    model = glm::scale(model, glm::vec3(planeSize * scale, planeSize * scale, planeSize * scale));
+    model = glm::scale(model, glm::vec3(planeSize, planeSize, planeSize));
     model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
     //model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    model = glm::translate(model, glm::vec3(0.0f, 0.0f, -0.5f / planeSize));
+    model = glm::translate(model, glm::vec3(0.0f, 0.0f, -0.5f * scale / planeSize));
     glUniformMatrix4fv(backgroundPlaneUniforms.modelTrans, 1, GL_FALSE, glm::value_ptr(model));
 
     // Projection matrix
@@ -306,7 +305,7 @@ void FluidRenderer::setUpFluidData(){
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_RED, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, tempSetData.data());
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, tempSetData.data());
     glBindTexture(GL_TEXTURE_3D, 0);
 
     // Velocity  - initially zero
@@ -321,7 +320,7 @@ void FluidRenderer::setUpFluidData(){
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB, gridSize, gridSize, gridSize, 0, GL_RGB, GL_FLOAT, tempVelocityData.data());
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB32F, gridSize, gridSize, gridSize, 0, GL_RGB, GL_FLOAT, tempVelocityData.data());
     glBindTexture(GL_TEXTURE_3D, 0);
 
 
@@ -345,7 +344,7 @@ void FluidRenderer::setUpFluidData(){
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_RED, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, tempPressureData.data());
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, tempPressureData.data());
     glBindTexture(GL_TEXTURE_3D, 0);
 
 
@@ -414,10 +413,10 @@ void FluidRenderer::setUpSlices(){
     glGenFramebuffers(1, &FBOVelocitySlice);
     glGenFramebuffers(1, &FBOPressureSlice);
     glGenFramebuffers(1, &FBOLevelSetSlice);
-}
+}*/
 
 void FluidRenderer::integrateFluid(unsigned int frameTime){
-    glBindFramebuffer(GL_FRAMEBUFFER, FBOVelocitySlice);
+    /*glBindFramebuffer(GL_FRAMEBUFFER, FBOVelocitySlice);
     // for each slice, render quad into slice of 3D texture, excluding outer pixels
     for (int zSlice = 0; zSlice < gridSize; ++zSlice){
         glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, nextVelocityTexture, 0, zSlice);
@@ -430,5 +429,5 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
         glDrawElements(GL_TRIANGLE_STRIP, quadElements.size(), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
-    }
-}*/
+    }*/
+}

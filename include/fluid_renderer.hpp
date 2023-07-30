@@ -34,14 +34,14 @@ private:
     void renderFluid();
 
     unsigned int const screenWidth, screenHeight;
-    float const scale = 1; //scale of cube
+    float const scale = 1.5f; //scale of cube
     int const gridSize = 32;
     float const gValue = 9.81;
     float const rho = 997;
     // cube location - change this to camera...
     float horizRot = 0.0f;
     float vertRot = 0.0f;
-    float horizRotSpeed = glm::radians(6000.0f)*1e-7;
+    float horizRotSpeed = glm::radians(1000.0f)*1e-6;
     float const planeSize = 10.0f;
     
     struct Drawable{
