@@ -149,7 +149,7 @@ private:
 
     struct DrawableUniformLocations{
         GLint modelTrans, projTrans, viewTrans;
-    } renderFluidUniforms, raycastingPosUniforms, backgroundPlaneUniforms; // Possibly separate into different struct types?
+    } renderFluidUniforms, raycastingPosUniforms, backgroundPlaneUniforms, integrateFluidUniforms, advectLSUniforms; // Possibly separate into different struct types?
 
     struct RenderTarget{
         RenderTarget(unsigned int width, unsigned int height) : texture{width, height} {setUpBuffers();};
@@ -161,12 +161,27 @@ private:
         void releaseBuffers();
     } frontCube, backCube;
 
+    // Uniforms may need to be split up - separate shaders for different integrations?
+    // One shader: integarte fluid, another: advect scalar quantity
     struct SimulatedQuantity{ // Should this just be scalar? Is velocity different??
         //SimulatedQuantity(int numberOfComponents, std::vector<float> const& initialData); // 1, 2, 3 or 4 - else error! GL_RED, GL_RGB etc.
         GLuint textureCurrent, uniformCurrent, textureNext, uniformNext;
     } levelSet, velocity, pressure;
+    GLuint uniformLevelSetFluid; // For renderFluidShader (uniforms above for integration)
+    //GLuint uniformVelocityScalar, uniformNextVelocityScalar; // For accessing velocity field when integrating scalars
+    GLuint uniformTimeStep;
+    GLuint uniformSlice;
+    ShaderProgram backgroundPlaneShader, raycastingPosShader, renderFluidShader, integrateFluidShader;
 
-    ShaderProgram backgroundPlaneShader, raycastingPosShader, renderFluidShader;//, integrateFluidShader;
+
+    // -----------
+        
+    void setUpSlices();
+    void releaseSlices();
+    GLuint FBOVelocitySlice, FBOLevelSetSlice;
+    ShaderProgram advectLevelSetShader;
+    GLuint uniformLSVelocity, uniformSliceLS, uniformTimeStepLS;
+
 };
 
 #endif

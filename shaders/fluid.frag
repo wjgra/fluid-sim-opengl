@@ -8,12 +8,6 @@ uniform sampler2D frontTexture;
 uniform sampler2D backTexture;
 
 uniform sampler3D levelSetTexture;
-//uniform sampler3D velocityTexture;
-//uniform sampler3D pressureTexture;
-
-//uniform sampler3D nextLevelSetTexture;
-//uniform sampler3D nextVelocityTexture;
-//uniform sampler3D nextPressureTexture;
 
 const int gridSize = 32;
 const vec4 sampleColour = vec4(0.227f, 0.621f, 0.777f, 0.8f) * vec4(1.0f, 1.0f, 1.0f, 1.5f/gridSize); // Vivid pale blue, with alpha factor
@@ -100,14 +94,13 @@ void main()
     }
     // Normals need to be transformed...
     vec3 lightColour = vec3(1.0f, 1.0f, 1.0f);
-    float ambientStrength = 0.6f;
+    float ambientStrength = 0.8f;
     vec3 lightDir = normalize(vec3(0.0f, -1.0f, 1.0f));
 
     vec3 diffuseColour = max(dot(surfaceNormal, lightDir), 0.0f) * lightColour;
     vec3 ambientColour = lightColour * ambientStrength;
 
     FragColor = vec4(/*diffuseColour + */ambientColour, 1.0f) * finalColour;
-    //FragColor = finalColour;
 
 
 
