@@ -76,6 +76,7 @@ void TextRenderer::setPosition(float scale, float xPos, float yPos){
 }
 
 void TextRenderer::drawString(std::string toDraw, float scale, float xPos, float yPos){
+    glActiveTexture(GL_TEXTURE0 + 0);
     texture.bind();
     shader.useProgram();
     glBindVertexArray(VAO);

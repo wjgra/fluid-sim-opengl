@@ -20,7 +20,9 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
 
     integrateFluidUniforms.modelTrans = integrateFluidShader.getUniformLocation("model");
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::scale(model, glm::vec3(gridSize, gridSize, 1)); 
+    model = glm::scale(model, glm::vec3(gridSize, gridSize, 1));
+    //model = glm::scale(model, glm::vec3(screenWidth, screenHeight, 1));
+    model = glm::translate(model, glm::vec3(0.0f,0.0f,0.0f));  // should be (1,1,0) , but without any scaling!
     glUniformMatrix4fv(integrateFluidUniforms.modelTrans, 1, GL_FALSE, glm::value_ptr(model));
 
     // Projection matrix
@@ -45,6 +47,7 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
 
     // Proj/model
     advectLSUniforms.modelTrans = advectLevelSetShader.getUniformLocation("model");
+    model = glm::translate(model, glm::vec3(0.0f,0.0f,0.0f));
     glUniformMatrix4fv(advectLSUniforms.modelTrans, 1, GL_FALSE, glm::value_ptr(model));
     advectLSUniforms.projTrans = advectLevelSetShader.getUniformLocation("projection");
     glUniformMatrix4fv(advectLSUniforms.projTrans, 1, GL_FALSE, glm::value_ptr(projection));
@@ -140,7 +143,7 @@ void FluidRenderer::frame(unsigned int frameTime){
     // glDisable(GL_CULL_FACE);
     // No depth buffer, so have to cull back faces
     glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);//raycastingPosShader.useProgram(); // do I need to reactivate this?
+    glCullFace(GL_BACK);//raycastingPosShader.useProgram(); // do I need to reactivate this? no...
     cube.draw(GL_TRIANGLES);
 
     glBindFramebuffer(GL_FRAMEBUFFER, backCube.FBO);
@@ -174,7 +177,7 @@ void FluidRenderer::frame(unsigned int frameTime){
 
     glActiveTexture(GL_TEXTURE0 + 0);
     
-
+    //integrateFluid(frameTime);
 };
 
 void FluidRenderer::handleEvents(SDL_Event const& event){
@@ -276,6 +279,11 @@ void FluidRenderer::setUpFluidData(){
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    /*glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+    float tempLS = 0.0f;
+    glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, &tempLS);*/
     glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, tempSetData.data());
     glBindTexture(GL_TEXTURE_3D, 0);
 
@@ -297,12 +305,17 @@ void FluidRenderer::setUpFluidData(){
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, tempSetData2.data());
+    /*glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+    glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, &tempLS);*/
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, tempSetData.data());
     glBindTexture(GL_TEXTURE_3D, 0);
 
     // Velocity  - initially parallel to (1,1,1)
 
-    std::vector<float> tempVelocityData(3*gridSize*gridSize*gridSize, float(0.02f * 1e-6));
+    float fluidVel = 1.0f;
+    std::vector<float> tempVelocityData(4*gridSize*gridSize*gridSize, float(fluidVel)); // Ignore a component
 
     glGenTextures(1, &velocity.textureCurrent);
     //glActiveTexture(GL_TEXTURE0 + 3);
@@ -312,7 +325,12 @@ void FluidRenderer::setUpFluidData(){
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB32F, gridSize, gridSize, gridSize, 0, GL_RGB, GL_FLOAT, tempVelocityData.data());
+    /*glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+    float tempVel[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+    glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, tempVel);*/
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, gridSize, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, tempVelocityData.data());
     glBindTexture(GL_TEXTURE_3D, 0);
 
     /*
@@ -341,7 +359,7 @@ void FluidRenderer::setUpFluidData(){
 
     // Next Velocity 
 
-    std::vector<float> tempVelocityData2(3*gridSize*gridSize*gridSize, float(0.02f * 1e-6));
+    //std::vector<float> tempVelocityData2(3*gridSize*gridSize*gridSize, float(0.2f * 1e-6));
 
     glGenTextures(1, &velocity.textureNext);
     //glActiveTexture(GL_TEXTURE0 + 6);
@@ -351,7 +369,11 @@ void FluidRenderer::setUpFluidData(){
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB32F, gridSize, gridSize, gridSize, 0, GL_RGB, GL_FLOAT, tempVelocityData2.data());
+    /*glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+    glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, tempVel);*/
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, gridSize, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, tempVelocityData.data());
     glBindTexture(GL_TEXTURE_3D, 0);    
 };
 
@@ -363,6 +385,8 @@ void FluidRenderer::setUpSlices(){
 }
 
 void FluidRenderer::integrateFluid(unsigned int frameTime){
+    
+    /*
     // Advect velocity
     glGenFramebuffers(1, &FBOVelocitySlice);
     glBindFramebuffer(GL_FRAMEBUFFER, FBOVelocitySlice);
@@ -389,37 +413,89 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
 
         quad.draw(GL_TRIANGLES);
     }
+    */
+
+    //glGenFramebuffers(1, &FBOLevelSetSlice);
+    //glBindFramebuffer(GL_FRAMEBUFFER, FBOLevelSetSlice);    
+    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0,0,gridSize, gridSize);
     
+    glActiveTexture(GL_TEXTURE0 + 0);
+    glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
+
+    glActiveTexture(GL_TEXTURE0 + 1);
+    glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent);
+    
+    glActiveTexture(GL_TEXTURE0 + 0);
+    //glActiveTexture(GL_TEXTURE0 + 2);
+    //glBindTexture(GL_TEXTURE_3D, 0);
+    advectLevelSetShader.useProgram();
+
+
+
+    //quad.draw(GL_TRIANGLES);
+    //glViewport(0,0,screenWidth,screenHeight);
+
+    //int zSlice = 6;
+    //glUniform1i(uniformSliceLS, zSlice);
+    glUniform1f(uniformTimeStepLS, (float)frameTime);
+
     glGenFramebuffers(1, &FBOLevelSetSlice);
     glBindFramebuffer(GL_FRAMEBUFFER, FBOLevelSetSlice);
+    /*    
+    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    //glBindFramebuffer(GL_FRAMEBUFFER, 0)
+    glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, levelSet.textureNext, 0, zSlice);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+            throw std::string("Failed to initialise framebuffer\n");
     
+    //GLfloat temp = -1.0f;
+    //glClearBufferfv(GL_COLOR, 0, &temp);
+    quad.draw(GL_TRIANGLES);
+    */
+    //std::swap(velocity.textureCurrent, velocity.textureNext);
 
-    for (int zSlice = 1; zSlice < gridSize - 1; ++zSlice){
-        
-        //glBindFramebuffer(GL_FRAMEBUFFER, FBOLevelSetSlice);
+    //zSlice++;
+    for (int zSlice = 0; zSlice < gridSize; ++zSlice){
+        glUniform1i(uniformSliceLS, zSlice);
         glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, levelSet.textureNext, 0, zSlice);
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-            throw std::string("Failed to initialise framebuffer\n");
-        
-        glViewport(1, 1, gridSize-1, gridSize-1);
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        advectLevelSetShader.useProgram();
-        glActiveTexture(GL_TEXTURE0 + 0);
-        glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
-        glActiveTexture(GL_TEXTURE0 + 1);
-        glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent);
-        glUniform1i(uniformSliceLS, zSlice);
-        glUniform1f(uniformTimeStepLS, (float)frameTime);
+                throw std::string("Failed to initialise framebuffer\n");
         quad.draw(GL_TRIANGLES);
     }
-    
+    // Tidy up
+    glViewport(0,0,screenWidth,screenHeight);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    std::swap(levelSet.textureCurrent, levelSet.textureNext);
+
+    /*for (int zSlice = 1; zSlice < gridSize - 1; ++zSlice){
+        glUniform1i(uniformSliceLS, zSlice);
+        glUniform1f(uniformTimeStepLS, (float)frameTime);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);*/
+        //glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, levelSet.textureNext, 0, zSlice);
+        /*if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+            throw std::string("Failed to initialise framebuffer\n");
+        */
+        //glViewport(1, 1, gridSize-1, gridSize-1);
+        
+        // GLfloat temp = -1.0f;
+        //glClearBufferfv(GL_COLOR, 0, &temp);
+/*
+        glDisable(GL_CULL_FACE); 
+
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        quad.draw(GL_TRIANGLES);
+    }
+    glActiveTexture(GL_TEXTURE0 + 0);
+    glBindTexture(GL_TEXTURE_3D, 0);
+
+    glActiveTexture(GL_TEXTURE0 + 1);
+    glBindTexture(GL_TEXTURE_3D, 0);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, screenWidth, screenHeight);
     glActiveTexture(GL_TEXTURE0);
 
     std::swap(velocity.textureCurrent, velocity.textureNext);
-    std::swap(levelSet.textureCurrent, levelSet.textureNext);
+    std::swap(levelSet.textureCurrent, levelSet.textureNext);*/
 }

@@ -63,6 +63,7 @@ void main()
         if (sample < 0.0f){
             
             if (!reachedSurface){ // Consider separate loops
+                //FragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f); return;
                 reachedSurface  = true;
                 if (false && marchingPoint.x <= dX){
                     //
