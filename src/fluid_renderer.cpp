@@ -263,11 +263,11 @@ void FluidRenderer::setDrawableUniformValues(){
 void FluidRenderer::setUpFluidData(){    
     glActiveTexture(GL_TEXTURE0 + 0);
     // Level set - initial surface at z = 0.5f
-    std::vector<float> tempSetData(gridSize*gridSize*gridSize);
+    std::vector<float> tempSetData(4*gridSize*gridSize*gridSize, 0.0f);
     
     for (int i = 0; i < gridSize ; ++i){
-        for (int j = 0; j < gridSize*gridSize; ++j){
-           tempSetData[i*gridSize*gridSize + j] = float(gridSize/2 - i); // Int division intentional
+        for (int j = 0; j < 4*gridSize*gridSize; j = j+4){
+           tempSetData[4*i*gridSize*gridSize + j] = float(gridSize/2 - i); // Int division intentional
         }
     }
 
@@ -276,24 +276,22 @@ void FluidRenderer::setUpFluidData(){
     glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    /*glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-    float tempLS = 0.0f;
-    glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, &tempLS);*/
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, tempSetData.data());
+    float tempLS[4] = {1.0f, 0.0f, 0.0f, 0.0f};
+    glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, tempLS);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, gridSize, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, tempSetData.data());
     glBindTexture(GL_TEXTURE_3D, 0);
 
 
     // Next LevelSet
-    std::vector<float> tempSetData2(gridSize*gridSize*gridSize);
+    std::vector<float> tempSetData2(4*gridSize*gridSize*gridSize, 0.0f);
     
     for (int i = 0; i < gridSize ; ++i){
-        for (int j = 0; j < gridSize*gridSize; ++j){
-           tempSetData2[i*gridSize*gridSize + j] = float(i - gridSize/2); // Int division intentional
+        for (int j = 0; j < 4*gridSize*gridSize; j = j+4){
+           tempSetData2[4*i*gridSize*gridSize + j] = float(i - gridSize/2); // Int division intentional
+
         }
     }
 
@@ -302,34 +300,38 @@ void FluidRenderer::setUpFluidData(){
     glBindTexture(GL_TEXTURE_3D, levelSet.textureNext);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    /*glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-    glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, &tempLS);*/
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, tempSetData.data());
+    glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, tempLS);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, gridSize, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, tempSetData.data());
     glBindTexture(GL_TEXTURE_3D, 0);
 
     // Velocity  - initially parallel to (1,1,1)
 
-    float fluidVel = 1.0f;
-    std::vector<float> tempVelocityData(4*gridSize*gridSize*gridSize, float(fluidVel)); // Ignore a component
+    //float fluidVel = 1.0f;
+    std::vector<float> tempVelocityData(4*gridSize*gridSize*gridSize, 0.0f); // Ignore a component
+
+    for (int i = 0; i < gridSize ; ++i){
+        for (int j = 0; j < 4*gridSize*gridSize; j = j+4){
+           tempVelocityData[4*i*gridSize*gridSize + j+2/*z*/] = 1.0f; // Int division intentional
+
+        }
+    }
 
     glGenTextures(1, &velocity.textureCurrent);
     //glActiveTexture(GL_TEXTURE0 + 3);
     glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    /*glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    /*glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);*/
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-    float tempVel[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-    glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, tempVel);*/
+    float tempVel[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, tempVel);
     glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, gridSize, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, tempVelocityData.data());
     glBindTexture(GL_TEXTURE_3D, 0);
 
@@ -366,13 +368,13 @@ void FluidRenderer::setUpFluidData(){
     glBindTexture(GL_TEXTURE_3D, velocity.textureNext);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    /*glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    /*glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);*/
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-    glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, tempVel);*/
+    glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, tempVel);
     glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, gridSize, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, tempVelocityData.data());
     glBindTexture(GL_TEXTURE_3D, 0);    
 };
@@ -418,6 +420,7 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     //glGenFramebuffers(1, &FBOLevelSetSlice);
     //glBindFramebuffer(GL_FRAMEBUFFER, FBOLevelSetSlice);    
     //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDisable(GL_BLEND);
     glViewport(0,0,gridSize, gridSize);
     
     glActiveTexture(GL_TEXTURE0 + 0);
@@ -461,12 +464,15 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
         glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, levelSet.textureNext, 0, zSlice);
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
                 throw std::string("Failed to initialise framebuffer\n");
+        //GLfloat temp = -1.0f;
+        //glClearBufferfv(GL_COLOR, 0, &temp);
         quad.draw(GL_TRIANGLES);
     }
     // Tidy up
     glViewport(0,0,screenWidth,screenHeight);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     std::swap(levelSet.textureCurrent, levelSet.textureNext);
+    glEnable(GL_BLEND);
 
     /*for (int zSlice = 1; zSlice < gridSize - 1; ++zSlice){
         glUniform1i(uniformSliceLS, zSlice);

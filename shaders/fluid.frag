@@ -58,7 +58,7 @@ void main()
         if (finalColour.w > 0.99)
             break;
         
-        float sample = float(texture(levelSetTexture, marchingPoint));
+        float sample = float(texture(levelSetTexture, marchingPoint).x);
 
         if (sample < 0.0f){
             
@@ -72,11 +72,11 @@ void main()
                 {
                     // Central differences
                     float levelSetCentre = sample;
-                    float levelSetPosX = float(texture(levelSetTexture, marchingPoint + vec3(dX, 0.0f, 0.0f)));
-                    float levelSetNegX = float(texture(levelSetTexture, marchingPoint + vec3(-dX, 0.0f, 0.0f)));
-                    float levelSetPosY = float(texture(levelSetTexture, marchingPoint + vec3(0.0f, dX, 0.0f)));
-                    float levelSetNegY = float(texture(levelSetTexture, marchingPoint + vec3(0.0f, -dX, 0.0f)));
-                    float levelSetPosZ = float(texture(levelSetTexture, marchingPoint + vec3(0.0f, 0.0f, dX)));
+                    float levelSetPosX = float(texture(levelSetTexture, marchingPoint + vec3(dX, 0.0f, 0.0f)).x);
+                    float levelSetNegX = float(texture(levelSetTexture, marchingPoint + vec3(-dX, 0.0f, 0.0f)).x);
+                    float levelSetPosY = float(texture(levelSetTexture, marchingPoint + vec3(0.0f, dX, 0.0f)).x);
+                    float levelSetNegY = float(texture(levelSetTexture, marchingPoint + vec3(0.0f, -dX, 0.0f)).x);
+                    float levelSetPosZ = float(texture(levelSetTexture, marchingPoint + vec3(0.0f, 0.0f, dX)).x);
                     float levelSetNegZ = float(texture(levelSetTexture, marchingPoint + vec3(0.0f, 0.0f, -dX)));
 
                     surfaceNormal = vec3(levelSetPosX - levelSetNegX, levelSetPosY - levelSetNegY, levelSetPosZ - levelSetNegZ) / (2 * dX);
