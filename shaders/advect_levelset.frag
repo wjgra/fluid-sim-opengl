@@ -50,7 +50,7 @@ float advectLevelSet(){
     else{
         return 1.0f;
     }*/
-    vec3 vel = vel2.xyz;vel = vec3(0,1,0);
+    vec3 vel = vel2.xyz;//vel = vec3(0,1,0);
     vel /= -1e7;
     
     // Disappears for z>=0 - not anymore!
