@@ -1,4 +1,14 @@
 #include "../include/fluid_renderer.hpp"
+/*
+FluidRenderer::Drawable FluidRenderer::quad = FluidRenderer::Drawable({
+        1.0f, 0.0f,   1.0f, 0.0f,   // SE
+        1.0f, 1.0f,   1.0f, 1.0f,   // NE
+        0.0f, 0.0f,   0.0f, 0.0f,   // SW
+        1.0f, 1.0f,   1.0f, 1.0f,   // NE
+        0.0f, 0.0f,   0.0f, 0.0f,   // SW
+        0.0f, 1.0f,   0.0f, 1.0f    // NW
+    }, 2u);*/
+
 
 FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     screenWidth{width},
@@ -8,9 +18,12 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     backgroundPlaneShader{".//shaders//background_plane.vert", ".//shaders//background_plane.frag"},
     raycastingPosShader(".//shaders//raycasting_pos.vert", ".//shaders//raycasting_pos.frag"),
     renderFluidShader(".//shaders//fluid.vert", ".//shaders//fluid.frag"),
-    integrateFluidShader(".//shaders//integrate_fluid.vert", ".//shaders//integrate_fluid.frag"),
-    advectLevelSetShader(".//shaders//advect_levelset.vert", ".//shaders//advect_levelset.frag")
-{
+    integrateFluidShader(".//shaders//integrate_fluid.vert", ".//shaders//integrate_fluid.frag"),//to delete
+    advectLevelSetShader(".//shaders//advect_levelset.vert", ".//shaders//advect_levelset.frag"),// to delete
+    advection(".//shaders//integrate_fluid.vert", ".//shaders//integrate_fluid.frag"), //  to rename
+    diffusion(".//shaders//diffuse_quantity.vert", ".//shaders//diffuse_quantity.frag"),
+    forceApplication(".//shaders//apply_force_to_quantity.vert", ".//shaders//apply_force_to_quantity.frag")
+{   
     setDrawableUniformValues();
 
     setUpFluidData();
@@ -33,13 +46,16 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     uniformTimeStep = integrateFluidShader.getUniformLocation("timeStep");
     uniformSlice = integrateFluidShader.getUniformLocation("zSlice");
 
-
     // Set texture indices / get locations (VEL ADV SHADER)
-    velocity.uniformCurrent = integrateFluidShader.getUniformLocation("velocityTexture");
-    glUniform1i(velocity.uniformCurrent, 0);
-    glActiveTexture(GL_TEXTURE0 + 0);
-    //glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
+    velocity.uniformIntegrateShader = integrateFluidShader.getUniformLocation("velocityTexture");
+    glUniform1i(velocity.uniformIntegrateShader, 0);
+    levelSet.uniformIntegrateShader = integrateFluidShader.getUniformLocation("levelSetTexture");
+    glUniform1i(levelSet.uniformIntegrateShader, 1);
 
+
+    // TS/slice
+    uniformSliceIF = integrateFluidShader.getUniformLocation("zSlice");
+    uniformTimeStepIF = integrateFluidShader.getUniformLocation("timeStep");
 
 
     // LS ADV SHADER
@@ -56,15 +72,19 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     uniformSliceLS = advectLevelSetShader.getUniformLocation("zSlice");
     uniformTimeStepLS = advectLevelSetShader.getUniformLocation("timeStep");
 
-    uniformLSVelocity = advectLevelSetShader.getUniformLocation("velocityTexture");
-    glUniform1i(uniformLSVelocity, 0);
+    levelSet.uniformAdvectLSShader = advectLevelSetShader.getUniformLocation("velocityTexture");
+    glUniform1i(levelSet.uniformAdvectLSShader, 0);
+    //levelSet.uniformAdvectLSShader;
     
-    levelSet.uniformCurrent = advectLevelSetShader.getUniformLocation("levelSetTexture");
-    glUniform1i(levelSet.uniformCurrent, 1);
+    levelSet.uniformIntegrateShader = advectLevelSetShader.getUniformLocation("levelSetTexture");
+    glUniform1i(levelSet.uniformIntegrateShader, 1);
     // Textures
     
   
     glActiveTexture(GL_TEXTURE0 + 0);
+
+
+
 };
 
 // Generates VAO and VBO for Drawable object and copies vertex/UV data into VBO
@@ -315,7 +335,7 @@ void FluidRenderer::setUpFluidData(){
 
     for (int i = 0; i < gridSize ; ++i){
         for (int j = 0; j < 4*gridSize*gridSize; j = j+4){
-           tempVelocityData[4*i*gridSize*gridSize + j+2/*z*/] = 1.0f; // Int division intentional
+           tempVelocityData[4*i*gridSize*gridSize + j+2/*z*/] = 0.0f;//-1e-7; // Int division intentional
 
         }
     }
@@ -389,120 +409,51 @@ void FluidRenderer::setUpSlices(){
 
 void FluidRenderer::integrateFluid(unsigned int frameTime){
     
-    /*
-    // Advect velocity
-    glGenFramebuffers(1, &FBOVelocitySlice);
-    glBindFramebuffer(GL_FRAMEBUFFER, FBOVelocitySlice);
-    
-    // for each slice, render quad into slice of 3D texture, excluding outer pixels
-    for (int zSlice = 1; zSlice < gridSize - 1; ++zSlice){
-        
 
-        //glBindFramebuffer(GL_FRAMEBUFFER, FBOVelocitySlice);
-        glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, velocity.textureNext, 0, zSlice);
-        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-            throw std::string("Failed to initialise framebuffer\n");
-        
-        
-        glViewport(1, 1, gridSize-1, gridSize-1);
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        integrateFluidShader.useProgram();
-        glActiveTexture(GL_TEXTURE0 + 0);
-        glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
-        glUniform1i(uniformSlice, zSlice);
-        glUniform1f(uniformTimeStep, (float)frameTime);
-
-        quad.draw(GL_TRIANGLES);
-    }
-    */
-
-    //glGenFramebuffers(1, &FBOLevelSetSlice);
-    //glBindFramebuffer(GL_FRAMEBUFFER, FBOLevelSetSlice);    
-    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_BLEND);
-    glViewport(0,0,gridSize, gridSize);
-    
+    glViewport(0,0,gridSize, gridSize); // change to slab-op later 
+
     glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
 
     glActiveTexture(GL_TEXTURE0 + 1);
     glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent);
+
+    glActiveTexture(GL_TEXTURE0 + 2);
+    glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent); // bind advected quantity to second pos
     
-    glActiveTexture(GL_TEXTURE0 + 0);
-    //glActiveTexture(GL_TEXTURE0 + 2);
-    //glBindTexture(GL_TEXTURE_3D, 0);
-    advectLevelSetShader.useProgram();
+    //glActiveTexture(GL_TEXTURE0 + 0);
 
-
-
-    //quad.draw(GL_TRIANGLES);
-    //glViewport(0,0,screenWidth,screenHeight);
-
-    //int zSlice = 6;
-    //glUniform1i(uniformSliceLS, zSlice);
-    glUniform1f(uniformTimeStepLS, (float)frameTime);
-
-    glGenFramebuffers(1, &FBOLevelSetSlice);
-    glBindFramebuffer(GL_FRAMEBUFFER, FBOLevelSetSlice);
-    /*    
-    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    //glBindFramebuffer(GL_FRAMEBUFFER, 0)
-    glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, levelSet.textureNext, 0, zSlice);
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-            throw std::string("Failed to initialise framebuffer\n");
+    // Advect Velocity
+    applyInnerSlabOperation(advection, frameTime, velocity.textureNext);
     
-    //GLfloat temp = -1.0f;
-    //glClearBufferfv(GL_COLOR, 0, &temp);
-    quad.draw(GL_TRIANGLES);
-    */
-    //std::swap(velocity.textureCurrent, velocity.textureNext);
+    // Advect Level Set
+    // glActiveTexture(GL_TEXTURE0 + 1); // already set
+    glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent);
+    //glActiveTexture(GL_TEXTURE0 + 0);
 
-    //zSlice++;
-    for (int zSlice = 0; zSlice < gridSize; ++zSlice){
-        glUniform1i(uniformSliceLS, zSlice);
-        glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, levelSet.textureNext, 0, zSlice);
-        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-                throw std::string("Failed to initialise framebuffer\n");
-        //GLfloat temp = -1.0f;
-        //glClearBufferfv(GL_COLOR, 0, &temp);
-        quad.draw(GL_TRIANGLES);
-    }
+    applyInnerSlabOperation(advection, frameTime, levelSet.textureNext);
+    
+    // Re-bind velocity as quantity
+    glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
+
+    // Diffuse velocity
+    std::swap(velocity.textureCurrent, velocity.textureNext);
+    applyInnerSlabOperation(diffusion, frameTime, velocity.textureNext);
+    // Apply force to velocity
+    std::swap(velocity.textureCurrent, velocity.textureNext);
+    applyInnerSlabOperation(forceApplication, frameTime, velocity.textureNext);
+
+    // Remove divergence from velocity
+
+    std::swap(velocity.textureCurrent, velocity.textureNext);
+    std::swap(levelSet.textureCurrent, levelSet.textureNext);
+
     // Tidy up
     glViewport(0,0,screenWidth,screenHeight);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    std::swap(levelSet.textureCurrent, levelSet.textureNext);
-    glEnable(GL_BLEND);
-
-    /*for (int zSlice = 1; zSlice < gridSize - 1; ++zSlice){
-        glUniform1i(uniformSliceLS, zSlice);
-        glUniform1f(uniformTimeStepLS, (float)frameTime);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);*/
-        //glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, levelSet.textureNext, 0, zSlice);
-        /*if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-            throw std::string("Failed to initialise framebuffer\n");
-        */
-        //glViewport(1, 1, gridSize-1, gridSize-1);
-        
-        // GLfloat temp = -1.0f;
-        //glClearBufferfv(GL_COLOR, 0, &temp);
-/*
-        glDisable(GL_CULL_FACE); 
-
-        glDrawBuffer(GL_COLOR_ATTACHMENT0);
-        quad.draw(GL_TRIANGLES);
-    }
     glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_3D, 0);
-
-    glActiveTexture(GL_TEXTURE0 + 1);
-    glBindTexture(GL_TEXTURE_3D, 0);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, screenWidth, screenHeight);
-    glActiveTexture(GL_TEXTURE0);
-
-    std::swap(velocity.textureCurrent, velocity.textureNext);
-    std::swap(levelSet.textureCurrent, levelSet.textureNext);*/
+    glEnable(GL_BLEND);
 }
+
+

@@ -14,17 +14,17 @@ uniform int zSlice;
 
 const float step = 1.0f/gridSize;
 
-vec3 advectQuantity(){
+vec3 applyGravity(){
+    float levelSetValue = texture(levelSetTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step)).x;
     vec3 vel = texture(velocityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step)).xyz;
-    return texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step) - vel * timeStep).xyz;
+    if (levelSetValue <= 0){
+        vel += vec3(0.0f, -1e-13 * timeStep, 0.0f);
+    }
+    return vel;
 }
 
 void main(){
-    //FragColor = vec4(0.0f, 0.0f, -1e-7, 0.0f); return;
-    //vec3 temp = texture(levelSetTexture, vec3(TextureCoord, zSlice * step)).xyz;
-    //temp = advectVelocity();
-    levelSetTexture;
-    FragColor = vec4(advectQuantity(), 0.0f);
-    // FragColor = vec4(-1.0f, 0.0f, 0.0f, 0.0f);
-    // vec4(1.0f, 0.0f, 0.0f, 1.0f);
+    quantityTexture;
+    FragColor = vec4(applyGravity(), 0.0f);
+
 }
