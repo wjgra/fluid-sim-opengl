@@ -43,6 +43,8 @@ private:
     float vertRot = 0.0f;
     float horizRotSpeed = glm::radians(600.0f)*1e-6;
     float const planeSize = 10.0f;
+
+    int const numJacobiIterations = 25;//50;
     
     struct Drawable{
         Drawable(std::vector<float> const& verts, unsigned int vertexDimension) : vertices{verts}{setUpBuffers(vertexDimension);};
@@ -173,6 +175,7 @@ private:
     GLuint uniformSlice;
     ShaderProgram backgroundPlaneShader, raycastingPosShader, renderFluidShader, integrateFluidShader;
 
+    GLuint textureVelocityTemp;
 
     // -----------
         
@@ -184,39 +187,7 @@ private:
     GLuint uniformSliceIF, uniformTimeStepIF;
 
 
-    //void applyInnerSlabOperation(ShaderProgram* const innerShader);
-    /*
-    class SlabOperation{
-    public:
-        SlabOperation() = delete;
-        // To do: add outershader. alt: inner and outer slab op classes
-        SlabOperation(const std::string vertexShaderPath, const std::string fragmentShaderPath) :
-            innerShader(vertexShaderPath, fragmentShaderPath)
-        {
-            uniformTS = innerShader.getUniformLocation("timeStep");
-            uniformZS = innerShader.getUniformLocation("zSlice");
-        };
-        void apply(unsigned int frameTime, GLuint targetTexture){
-            innerShader.useProgram();
-            glUniform1f(uniformTS, (float)frameTime);
-
-            glGenFramebuffers(1, &FBOSlice);
-            glBindFramebuffer(GL_FRAMEBUFFER, FBOSlice);
-            
-            for (int zSlice = 0; zSlice < gridSize; ++zSlice){
-                glUniform1i(uniformZS, zSlice);
-                glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, targetTexture, 0, zSlice);
-                if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-                        throw std::string("Failed to initialise framebuffer\n");
-                quad.draw(GL_TRIANGLES);
-            }
-        };
-
-    private:
-        ShaderProgram innerShader;
-        GLuint uniformTS, uniformZS, FBOSlice;
-    };// advection, diffusion, 
-    */
+    
     struct innerSlabOperation{
         innerSlabOperation(const std::string vertexShaderPath, const std::string fragmentShaderPath) :
             innerShader(vertexShaderPath, fragmentShaderPath)
@@ -245,7 +216,7 @@ private:
         ShaderProgram innerShader;
         GLuint uniformTS, uniformZS, FBOSlice;
         DrawableUniformLocations quadLocations;
-    } advection, diffusion, forceApplication;
+    } advection, diffusion, forceApplication, passThrough;
 
     void applyInnerSlabOperation(innerSlabOperation& slabOp, unsigned int frameTime, GLuint targetTexture){
         slabOp.innerShader.useProgram();

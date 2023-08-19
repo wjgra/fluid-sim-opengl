@@ -22,7 +22,8 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     advectLevelSetShader(".//shaders//advect_levelset.vert", ".//shaders//advect_levelset.frag"),// to delete
     advection(".//shaders//integrate_fluid.vert", ".//shaders//integrate_fluid.frag"), //  to rename
     diffusion(".//shaders//diffuse_quantity.vert", ".//shaders//diffuse_quantity.frag"),
-    forceApplication(".//shaders//apply_force_to_quantity.vert", ".//shaders//apply_force_to_quantity.frag")
+    forceApplication(".//shaders//apply_force_to_quantity.vert", ".//shaders//apply_force_to_quantity.frag"),
+    passThrough(".//shaders//diffuse_quantity.vert", ".//shaders//pass_through.frag")
 {   
     setDrawableUniformValues();
 
@@ -292,6 +293,45 @@ void FluidRenderer::setUpFluidData(){
         }
     }
 
+    // Improved level set data (0 around fluid) - still need to add border I suppose
+    for (int k = 0; k < gridSize; ++k){
+        for (int j = 0 ; j < gridSize; ++j){
+            for (int i = 0; i < gridSize; ++i){
+                //location of (i,j,k) in texture data is 4 * gridSize * gridSize * k + 4 * gridSize * j + 4 * i
+                // bottom layer
+                if ( j == 0){
+                    tempSetData[4 * gridSize * gridSize * k + 4 * gridSize * j + 4 * i] = 0; // Top of water surface
+                }
+
+                // top 'half' decrements to 0 in j=16 layer
+                else if (j >= 16){
+                    tempSetData[4 * gridSize * gridSize * k + 4 * gridSize * j + 4 * i] = j - 16;
+                }
+            
+                // bottom 'half': j in [1,15]
+                else{
+                    // Manhattan distance to edge
+                    
+                    int tempDist = std::min(i, gridSize-1-i);
+                    tempDist = std::min(tempDist, std::min(k, gridSize-1-k));
+                    tempDist = std::min(tempDist, j);
+                    tempDist = std::min(tempDist, 16-j);
+
+                    tempSetData[4 * gridSize * gridSize * k + 4 * gridSize * j + 4 * i] = -tempDist;
+
+
+                    if (i == 0 || k == 0 || i == gridSize-1 || k == gridSize-1){//edges
+                        
+                    }
+                }
+
+                
+            }
+        }
+    }
+
+
+
     glGenTextures(1, &levelSet.textureCurrent);
     //glActiveTexture(GL_TEXTURE0 + 2);
     glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent);
@@ -307,14 +347,14 @@ void FluidRenderer::setUpFluidData(){
 
 
     // Next LevelSet
-    std::vector<float> tempSetData2(4*gridSize*gridSize*gridSize, 0.0f);
-    
+    //std::vector<float> tempSetData2(4*gridSize*gridSize*gridSize, 0.0f);
+    /*
     for (int i = 0; i < gridSize ; ++i){
         for (int j = 0; j < 4*gridSize*gridSize; j = j+4){
            tempSetData2[4*i*gridSize*gridSize + j] = float(i - gridSize/2); // Int division intentional
 
         }
-    }
+    }*/
 
     glGenTextures(1, &levelSet.textureNext);
     //glActiveTexture(GL_TEXTURE0 + 5);
@@ -339,6 +379,8 @@ void FluidRenderer::setUpFluidData(){
 
         }
     }
+
+
 
     glGenTextures(1, &velocity.textureCurrent);
     //glActiveTexture(GL_TEXTURE0 + 3);
@@ -398,6 +440,18 @@ void FluidRenderer::setUpFluidData(){
     glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, tempVel);*/
     glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, gridSize, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, tempVelocityData.data());
     glBindTexture(GL_TEXTURE_3D, 0);    
+
+
+    // Temp velocity for use in Jacobi iteration
+    glGenTextures(1, &textureVelocityTemp);
+    glBindTexture(GL_TEXTURE_3D, textureVelocityTemp);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, gridSize, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, tempVelocityData.data());
+    glBindTexture(GL_TEXTURE_3D, 0);  
 };
 
 void FluidRenderer::setUpSlices(){
@@ -420,7 +474,7 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent);
 
     glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent); // bind advected quantity to second pos
+    glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent); // bind advected quantity to pos = 2
     
     //glActiveTexture(GL_TEXTURE0 + 0);
 
@@ -428,26 +482,39 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     applyInnerSlabOperation(advection, frameTime, velocity.textureNext);
     
     // Advect Level Set
-    // glActiveTexture(GL_TEXTURE0 + 1); // already set
-    glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent);
-    //glActiveTexture(GL_TEXTURE0 + 0);
-
+    glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent); // Bind to pos 2
     applyInnerSlabOperation(advection, frameTime, levelSet.textureNext);
-    
-    // Re-bind velocity as quantity
+
+    std::swap(velocity.textureCurrent, velocity.textureNext); // consider moving up...
+
+    // Re-bind velocity as quantity to be altered
     glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
 
+    // pass through current velocity to temp velocity, which is used as 0th iteration
+    applyInnerSlabOperation(passThrough, frameTime, textureVelocityTemp);
+    // then bind temp velocity to pos = 2 shader
+    glBindTexture(GL_TEXTURE_3D, textureVelocityTemp);
+
     // Diffuse velocity
-    std::swap(velocity.textureCurrent, velocity.textureNext);
-    applyInnerSlabOperation(diffusion, frameTime, velocity.textureNext);
+    for (int i = 0; i < numJacobiIterations; ++i){
+        // Render into next velocity (kth iterate is in temp, k+1th in next)
+        applyInnerSlabOperation(diffusion, frameTime, velocity.textureNext);
+        // swap next and temp velocity, then iterate 
+        std::swap(velocity.textureNext, textureVelocityTemp);
+    }
+        
+    std::swap(velocity.textureCurrent, textureVelocityTemp); // Swap final iteration into current velocity
+
     // Apply force to velocity
-    std::swap(velocity.textureCurrent, velocity.textureNext);
+    glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
     applyInnerSlabOperation(forceApplication, frameTime, velocity.textureNext);
+    std::swap(velocity.textureCurrent, velocity.textureNext);
 
     // Remove divergence from velocity
 
-    std::swap(velocity.textureCurrent, velocity.textureNext);
-    std::swap(levelSet.textureCurrent, levelSet.textureNext);
+    // 
+    
+    std::swap(levelSet.textureCurrent, levelSet.textureNext); // consider moving up to after level set calc.
 
     // Tidy up
     glViewport(0,0,screenWidth,screenHeight);
