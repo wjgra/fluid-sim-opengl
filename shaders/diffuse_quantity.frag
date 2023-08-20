@@ -14,7 +14,7 @@ uniform int zSlice;
 
 const float step = 1.0f/gridSize;
 
-const float viscosity = 0.1f;
+const float viscosity = 1e-3; // Currently like honey! Needs to be lower for water
 const int numJacobiIterations = 50;
 
 vec3 diffuseQuantity(){
@@ -45,5 +45,4 @@ vec3 diffuseQuantity(){
 void main(){
     levelSetTexture;
     FragColor = vec4(diffuseQuantity(), 0.0f);
-
 }

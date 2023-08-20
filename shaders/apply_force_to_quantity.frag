@@ -16,15 +16,15 @@ const float step = 1.0f/gridSize;
 
 vec3 applyGravity(){
     float levelSetValue = texture(levelSetTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step)).x;
-    vec3 vel = texture(velocityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step)).xyz;
-    if (levelSetValue <= 0){
+    vec3 vel = texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step)).xyz;
+    if (levelSetValue <= 0){//} && TextureCoord.x>0.5){
         vel += vec3(0.0f, -1e-13 * timeStep, 0.0f);
     }
     return vel;
 }
 
 void main(){
-    quantityTexture;
+    velocityTexture;
     FragColor = vec4(applyGravity(), 0.0f);
 
 }

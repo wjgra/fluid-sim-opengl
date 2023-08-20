@@ -45,6 +45,7 @@ private:
     float const planeSize = 10.0f;
 
     int const numJacobiIterations = 25;//50;
+    int const numJacobiIterationsPressure = 25;
     
     struct Drawable{
         Drawable(std::vector<float> const& verts, unsigned int vertexDimension) : vertices{verts}{setUpBuffers(vertexDimension);};
@@ -180,11 +181,12 @@ private:
     // -----------
         
     void setUpSlices();
-    void releaseSlices();
+    //void releaseSlices();
     GLuint FBOVelocitySlice, FBOLevelSetSlice;
     ShaderProgram advectLevelSetShader;
     GLuint uniformLSVelocity, uniformSliceLS, uniformTimeStepLS;
     GLuint uniformSliceIF, uniformTimeStepIF;
+
 
 
     
@@ -198,7 +200,7 @@ private:
             quadLocations.modelTrans = innerShader.getUniformLocation("model");
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::scale(model, glm::vec3(gridSize, gridSize, 1));
-            model = glm::translate(model, glm::vec3(0.0f,0.0f,0.0f));  // should be (1,1,0) , but without any scaling!
+            model = glm::translate(model, glm::vec3(0.0f,0.0f,0.0f));
             glUniformMatrix4fv(quadLocations.modelTrans, 1, GL_FALSE, glm::value_ptr(model));
 
             // Projection matrix
@@ -216,11 +218,54 @@ private:
         ShaderProgram innerShader;
         GLuint uniformTS, uniformZS, FBOSlice;
         DrawableUniformLocations quadLocations;
-    } advection, diffusion, forceApplication, passThrough;
+    } advection, diffusion, forceApplication, passThrough, divergence, pressurePoisson, removeDivergence;
 
     void applyInnerSlabOperation(innerSlabOperation& slabOp, unsigned int frameTime, GLuint targetTexture){
+        glScissor(1,1,gridSize-2,gridSize-2);
         slabOp.innerShader.useProgram();
         glUniform1f(slabOp.uniformTS, (float)frameTime);
+
+        glGenFramebuffers(1, &(slabOp.FBOSlice));
+        glBindFramebuffer(GL_FRAMEBUFFER, slabOp.FBOSlice);
+        
+        for (int zSlice = 1; zSlice < gridSize-1; ++zSlice){ //not first/last layers
+            glUniform1i(slabOp.uniformZS, zSlice);
+            glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, targetTexture, 0, zSlice);
+            if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+                    throw std::string("Failed to initialise framebuffer\n");
+            quad.draw(GL_TRIANGLES);
+        }
+    }
+
+    struct outerSlabOperation{
+        outerSlabOperation(const std::string vertexShaderPath, const std::string fragmentShaderPath) :
+            outerShader(vertexShaderPath, fragmentShaderPath)
+        {   
+            // Model matrix
+            outerShader.useProgram();
+
+            quadLocations.modelTrans = outerShader.getUniformLocation("model");
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::scale(model, glm::vec3(gridSize, gridSize, 1));
+            model = glm::translate(model, glm::vec3(0.0f,0.0f,0.0f));
+            glUniformMatrix4fv(quadLocations.modelTrans, 1, GL_FALSE, glm::value_ptr(model));
+
+            // Projection matrix
+            glm::mat4 projection = glm::ortho(0.0f, (float)gridSize,  0.0f, (float)gridSize, -1.0f, 1.0f);
+            quadLocations.projTrans = outerShader.getUniformLocation("projection");
+            glUniformMatrix4fv(quadLocations.projTrans, 1, GL_FALSE, glm::value_ptr(projection));
+            
+            uniformZS = outerShader.getUniformLocation("zSlice");
+            glUniform1i(outerShader.getUniformLocation("quantityTexture"), 2);//pos=2
+        };
+        ShaderProgram outerShader;
+        GLuint uniformZS, FBOSlice;
+        DrawableUniformLocations quadLocations;
+    } boundaryVelocity, boundaryLS, boundaryPressure;
+    
+    void applyOuterSlabOperation(outerSlabOperation& slabOp, GLuint targetTexture){
+        glScissor(0,0,gridSize,gridSize); // use discard in shader temporarily
+        slabOp.outerShader.useProgram();
 
         glGenFramebuffers(1, &(slabOp.FBOSlice));
         glBindFramebuffer(GL_FRAMEBUFFER, slabOp.FBOSlice);
@@ -233,7 +278,6 @@ private:
             quad.draw(GL_TRIANGLES);
         }
     }
-
 };
 
 #endif

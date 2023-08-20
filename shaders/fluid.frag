@@ -101,7 +101,7 @@ void main()
     vec3 diffuseColour = max(dot(surfaceNormal, lightDir), 0.0f) * lightColour;
     vec3 ambientColour = lightColour * ambientStrength;
 
-    FragColor = vec4(diffuseColour + ambientColour, 1.0f) * finalColour;
+    FragColor = vec4(/*diffuseColour + */ambientColour, 1.0f) * finalColour;
 
 
 
