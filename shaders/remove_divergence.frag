@@ -31,4 +31,9 @@ void main(){
             (quantityPosZ - quantityNegZ)/(2 * step),
             0.0f
         );
+       // Check if non-zero solution to Poisson eqn
+        if (quantityPosY != 0.0f || quantityNegY != 0.0f || quantityNegX != 0.0f || quantityPosX != 0.0f || quantityNegZ != 0.0f || quantityPosZ != 0.0f){
+       
+        //FragColor += vec4(0.0f, 1e-5, 0.0f, 0.0f);
+    }
 }

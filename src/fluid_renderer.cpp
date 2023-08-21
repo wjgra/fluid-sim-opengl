@@ -422,12 +422,13 @@ void FluidRenderer::setUpFluidData(){
     //float fluidVel = 1.0f;
     std::vector<float> tempVelocityData(4*gridSize*gridSize*gridSize, 0.0f); // Ignore a component
 
-    for (int i = 0; i < gridSize ; ++i){
-        for (int j = 0; j < 4*gridSize*gridSize; j = j+4){
-           tempVelocityData[4*i*gridSize*gridSize + j+2/*z*/] = 0.0f;//-1e-7; // Int division intentional
+    
+    //for (int i = 0; i < gridSize ; ++i){
+      //  for (int j = 0; j < 4*gridSize*gridSize; j = j+4){
+        //   tempVelocityData[4*i*gridSize*gridSize + j+2/*z*/] = 0.0f;//-1e-7; // Int division intentional
 
-        }
-    }
+        //}
+    //}
 
 
 
@@ -609,7 +610,7 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     glBindTexture(GL_TEXTURE_3D, pressure.textureCurrent);
 
     glActiveTexture(GL_TEXTURE0 + 1);
-    glBindTexture(GL_TEXTURE_3D, pressure.textureNext);
+    glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent);
 
     glActiveTexture(GL_TEXTURE0 + 2);
     glBindTexture(GL_TEXTURE_3D, textureVelocityTemp); // div(velocity)

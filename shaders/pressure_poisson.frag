@@ -6,8 +6,8 @@ in vec2 TextureCoord;
 const int gridSize = 32;
 
 uniform sampler3D velocityTexture; // pressure
-uniform sampler3D levelSetTexture;
-uniform sampler3D quantityTexture; // div(pressure)
+uniform sampler3D levelSetTexture; // level set
+uniform sampler3D quantityTexture; // div(velocity)
 
 uniform float timeStep; // in microseconds
 uniform int zSlice;
@@ -28,6 +28,21 @@ float solvePoisson(){
 
 
 void main(){
-    levelSetTexture;timeStep;
-    FragColor = vec4(solvePoisson(), 0.0f, 0.0f, 0.0f);    
+    timeStep;
+    if (texture(levelSetTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step) ).x > 0)
+    {
+        FragColor = vec4(0.0f, 0.0f, 0.0f, 0.0f); // No pressure outside fluid
+    }
+    else{
+        FragColor = vec4(solvePoisson(), 0.0f, 0.0f, 0.0f);
+        if (texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step)).x == 0.0f){
+
+            
+
+
+            //FragColor = vec4(1e-8, 0.0f, 0.0f, 0.0f);
+            //FragColor = vec4((0.3-TextureCoord.y) * 1e-8, 0.0f, 0.0f, 0.0f);
+        }  
+    }
+      
 }
