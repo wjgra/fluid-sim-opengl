@@ -35,14 +35,14 @@ void main(){
     }
     else{
         FragColor = vec4(solvePoisson(), 0.0f, 0.0f, 0.0f);
-        if (texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step)).x == 0.0f){
+        //if (texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step)).x == 0.0f){
 
-            
 
 
             //FragColor = vec4(1e-8, 0.0f, 0.0f, 0.0f);
-            //FragColor = vec4((0.3-TextureCoord.y) * 1e-8, 0.0f, 0.0f, 0.0f);
-        }  
+            //FragColor = vec4((0.5-TextureCoord.y) * 1e-9, 0.0f, 0.0f, 0.0f);
+        //}  
     }
-      
+
+    //if (texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step)).x != 0.0f) FragColor = vec4(1e-8, 0.0f, 0.0f, 0.0f);
 }

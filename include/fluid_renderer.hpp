@@ -30,7 +30,7 @@ public:
 private:
     void setDrawableUniformValues();
     void setUpFluidData(); // !!Lots of code duplication here
-    void integrateFluid(unsigned int timeStep); // Consider making frame-independent. Should this be a member of simulated quantity? Does it differ for different quantities (e.g. velocity) is number of components an issue?
+    void integrateFluid(unsigned int timeStep); // Should this be a member of simulated quantity? Does it differ for different quantities (e.g. velocity) is number of components an issue?
     void renderFluid();
 
     unsigned int const screenWidth, screenHeight;
@@ -261,7 +261,7 @@ private:
         ShaderProgram outerShader;
         GLuint uniformZS, FBOSlice;
         DrawableUniformLocations quadLocations;
-    } boundaryVelocity, boundaryLS, boundaryPressure;
+    } boundaryVelocity, boundaryLS, boundaryPressure, clearSlabs;
     
     void applyOuterSlabOperation(outerSlabOperation& slabOp, GLuint targetTexture){
         glScissor(0,0,gridSize,gridSize); // use discard in shader temporarily

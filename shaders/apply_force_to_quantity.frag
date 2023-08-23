@@ -18,10 +18,14 @@ vec3 applyGravity(){
     float levelSetValue = texture(levelSetTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step)).x;
     vec3 vel = texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step)).xyz;
     if (levelSetValue <= 0){
-        vel += vec3(1e-16 * timeStep, -1e-13 * timeStep, 0.0f);
+        //vel += vec3(-1e-13 * timeStep, 0.0f, 0.0f);
+        vel += vec3(0.0f, -1e-13 * timeStep, 0.0f);
     }
     else{
-        vel = vec3(0.0f, 0.0f, 0.0f); // Not really the place for it...
+        //vel = vec3(0.0f, 0.0f, 0.0f); // Not really the place for it...
+    }
+    if (TextureCoord.x < 0.3f){
+       // vel += vec3(1e-13 * timeStep, 1e-13 * timeStep, 0.0f);
     }
     return vel;
 }

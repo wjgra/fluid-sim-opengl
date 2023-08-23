@@ -29,7 +29,8 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     boundaryPressure(".//shaders//diffuse_quantity.vert", ".//shaders//boundary_pressure.frag"),
     pressurePoisson(".//shaders//diffuse_quantity.vert", ".//shaders//pressure_poisson.frag"),///////
     divergence(".//shaders//diffuse_quantity.vert", ".//shaders//divergence.frag"),
-    removeDivergence(".//shaders//diffuse_quantity.vert", ".//shaders//remove_divergence.frag")
+    removeDivergence(".//shaders//diffuse_quantity.vert", ".//shaders//remove_divergence.frag"),
+    clearSlabs(".//shaders//diffuse_quantity.vert", ".//shaders//clear_slabs.frag")
 {   
     setDrawableUniformValues();
 
@@ -95,7 +96,7 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
 };
 
 // Generates VAO and VBO for Drawable object and copies vertex/UV data into VBO
-// @param vertDim = dimension of vertex data (used for calculating stride)
+// vertDim = dimension of vertex data (used for calculating stride)
 void FluidRenderer::Drawable::setUpBuffers(unsigned int vertDim){
     if (vertDim < 2 || vertDim > 4){
         throw std::string("Failed to set up buffer object. Vertex dimension must be 2, 3 or 4.\n");
@@ -293,11 +294,11 @@ void FluidRenderer::setUpFluidData(){
     // Level set - initial surface at z = 0.5f
     std::vector<float> tempSetData(4*gridSize*gridSize*gridSize, 0.0f);
     
-    for (int i = 0; i < gridSize ; ++i){
+    /*for (int i = 0; i < gridSize ; ++i){
         for (int j = 0; j < 4*gridSize*gridSize; j = j+4){
            tempSetData[4*i*gridSize*gridSize + j] = float(gridSize/2 - i); // Int division intentional
         }
-    }
+    }*/
 
     // Improved level set data (0 around fluid) - still need to add border I suppose
     for (int k = 0; k < gridSize; ++k){
@@ -595,6 +596,10 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     std::swap(velocity.textureCurrent, textureVelocityTemp); // Swap final iteration into current velocity
 
     // *** force is currently based on old level set - move swap to here and rebind LS to base it on new LS
+    //std::swap(levelSet.textureCurrent, levelSet.textureNext);
+    //glActiveTexture(GL_TEXTURE0 + 1);
+   /// glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent);
+    // ***
     // Apply force to velocity
     glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent); // pos = 2
     applyInnerSlabOperation(forceApplication, frameTime, velocity.textureNext);
@@ -602,10 +607,23 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
 
     // *Remove divergence from velocity*
 
+    // Apply velocity BC (must be done to ensure correct divergence at bdries)
+    glActiveTexture(GL_TEXTURE0 + 2);
+    glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
+    
+    applyOuterSlabOperation(boundaryVelocity, velocity.textureNext);
+    std::swap(velocity.textureCurrent, velocity.textureNext);
+
     // Compute div of currentVelocity (store in textureVelocityTemp)
     glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
     applyInnerSlabOperation(divergence, frameTime, textureVelocityTemp);
 
+    // Clear pressure texture
+    /*applyOuterSlabOperation(clearSlabs, pressure.textureNext);
+    std::swap(pressure.textureCurrent, pressure.textureNext);*/
+
+
+    // Bindings
     glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_3D, pressure.textureCurrent);
 

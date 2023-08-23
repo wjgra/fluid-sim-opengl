@@ -32,7 +32,7 @@ void main(){
     }
     else if (TextureCoord.y<step){
         offset = vec3( 0.0f, step,0.0f);
-        FragColor = -sampleQuantity(offset);// + vec4(0.0f, 1e-6, 0.0f, 0.0f); 
+        FragColor = -sampleQuantity(offset); 
     }
     else if (TextureCoord.y>1-step){
         offset = vec3(0.0f, -step,0.0f);
@@ -49,5 +49,5 @@ void main(){
     else{
         FragColor = sampleQuantity(offset);
     }
-
+    //FragColor = vec4(0.0f, 0.0f, 0.0f, 0.0f);
 }
