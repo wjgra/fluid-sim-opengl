@@ -45,7 +45,7 @@ private:
     float const planeSize = 10.0f;
 
     int const numJacobiIterations = 25;//50;
-    int const numJacobiIterationsPressure = 25;
+    int const numJacobiIterationsPressure = 50;
     
     struct Drawable{
         Drawable(std::vector<float> const& verts, unsigned int vertexDimension) : vertices{verts}{setUpBuffers(vertexDimension);};

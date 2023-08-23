@@ -65,8 +65,8 @@ void main()
             if (!reachedSurface){ // Consider separate loops
                 //FragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f); return;
                 reachedSurface  = true;
-                if (false && marchingPoint.x <= dX){
-                    //
+                if (false && marchingPoint.z >= 1.0f-step){
+                    surfaceNormal = vec3(0.0f, 0.0f, 1.0f);
                 }
                 else
                 {
@@ -100,12 +100,12 @@ void main()
 
     // Normals need to be transformed...
     vec3 lightColour = vec3(1.0f, 1.0f, 1.0f);
-    float ambientStrength = 0.8f;
-    vec3 lightDir = normalize(vec3(0.0f, -1.0f, 1.0f));
+    float ambientStrength = 0.5f;
+    vec3 lightDir = normalize(vec3(1.0f, 2.0f, 1.0f));
 
-    vec3 diffuseColour = max(dot(surfaceNormal, lightDir), 0.0f) * lightColour;
+    vec3 diffuseColour = max(dot(surfaceNormal, lightDir), 0.0f) * lightColour * 2.0f;
     vec3 ambientColour = lightColour * ambientStrength;
 
-    FragColor = vec4(/*diffuseColour + */ambientColour, 1.0f) * (finalColour);
+    FragColor = vec4(diffuseColour + ambientColour, 1.0f) * (finalColour);
 
 }

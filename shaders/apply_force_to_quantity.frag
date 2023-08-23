@@ -25,7 +25,7 @@ vec3 applyGravity(){
         //vel = vec3(0.0f, 0.0f, 0.0f); // Not really the place for it...
     }
     if (TextureCoord.x < 0.3f){
-       // vel += vec3(1e-13 * timeStep, 1e-13 * timeStep, 0.0f);
+        //vel += vec3(1e-13 * timeStep, 0.0f, 0.0f);
     }
     return vel;
 }
