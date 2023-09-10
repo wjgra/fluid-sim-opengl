@@ -30,11 +30,14 @@ public:
     void frame(unsigned int frameTime);
     void handleEvents(SDL_Event const& event);
 private:
-    void setDrawableUniformValues();
-    void setUpFluidData(); // !!Lots of code duplication here
-    void integrateFluid(unsigned int timeStep); // Should this be a member of simulated quantity? Does it differ for different quantities (e.g. velocity) is number of components an issue?
+    void setUpFluidRenderShaders();
+    void setUpFluidSimulationTextures();
+    void setUpFluidSimulationFBOs();
+    void integrateFluid(unsigned int timeStep);
     void renderFluid();
+    void renderBackground();
 
+    // Configuration variables
     unsigned int const screenWidth, screenHeight;
     float const scale = 1.5f; //scale of cube
     static int const gridSize = 32;
@@ -52,14 +55,25 @@ private:
     bool resetGravity = false;
 
     int const numJacobiIterations = 25;//50;
-    int const numJacobiIterationsPressure = 100;;
-    
-    std::vector<float> levelSetAsymptote;
+    int const numJacobiIterationsPressure = 75;
 
+    
+    // FOR RENDERING fluid
+
+    struct Camera{
+        glm::vec3 pos = glm::vec3(0.0f, 2.0f, 3.0f);
+        glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.0f);
+        glm::mat4 viewMatrix;
+        float yaw = 0.0f, pitch = 1.0f;
+        void updateMatrix(){
+            glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+            viewMatrix = glm::lookAt(pos, target, up);
+        }
+    } camera;
 
     struct Drawable{
-        Drawable(std::vector<float> const& verts, unsigned int vertexDimension) : vertices{verts}{setUpBuffers(vertexDimension);};
-        ~Drawable(){releaseBuffers();}
+        Drawable(std::vector<float> const& verts, unsigned int vertexDimension);
+        ~Drawable();
         void draw(GLint drawingMode = GL_TRIANGLES);
     private:
         void setUpBuffers(unsigned int vertDim = 3);
@@ -67,102 +81,10 @@ private:
         std::vector<float> const vertices;
         GLuint VBO, VAO;
     };
-    Drawable cube {{
-        // Back face
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, // SW
-        0.5f,  0.5f, -0.5f,  1.0f, 1.0f, // NE
-        0.5f, -0.5f, -0.5f,  1.0f, 0.0f, // SE         
-        0.5f,  0.5f, -0.5f,  1.0f, 1.0f, // NE
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, // SW
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, // NW
-        // Front face
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, // SW
-        0.5f, -0.5f,  0.5f,  1.0f, 0.0f, // SE
-        0.5f,  0.5f,  0.5f,  1.0f, 1.0f, // NE
-        0.5f,  0.5f,  0.5f,  1.0f, 1.0f, // NE
-        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f, // NW
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, // SW
-        // Left face
-        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // NE
-        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f, // NW
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // SW
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // SW
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, // SE
-        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // NE
-        // Right face
-        0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // NW
-        0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // SE
-        0.5f,  0.5f, -0.5f,  1.0f, 1.0f, // NE         
-        0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // SE
-        0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // NW
-        0.5f, -0.5f,  0.5f,  0.0f, 0.0f, // SW     
-        // Bottom face
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // NE
-        0.5f, -0.5f, -0.5f,  1.0f, 1.0f, // NW
-        0.5f, -0.5f,  0.5f,  1.0f, 0.0f, // SW
-        0.5f, -0.5f,  0.5f,  1.0f, 0.0f, // SW
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, // SE
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // NE
-        // Top face
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, // NW
-        0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // SE
-        0.5f,  0.5f, -0.5f,  1.0f, 1.0f, // NE     
-        0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // SE
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, // NW
-        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f  // SW  
-    }, 3u};
-    Drawable quad{{
-        1.0f, 0.0f,   1.0f, 0.0f,   // SE
-        1.0f, 1.0f,   1.0f, 1.0f,   // NE
-        0.0f, 0.0f,   0.0f, 0.0f,   // SW
-        1.0f, 1.0f,   1.0f, 1.0f,   // NE
-        0.0f, 0.0f,   0.0f, 0.0f,   // SW
-        0.0f, 1.0f,   0.0f, 1.0f    // NW
-    }, 2u};
-    Drawable backgroundPlane{{
-        /*// First quadrant
-        0.0f, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f,
-        1.0f, 0.0f, 0.0f, 0.0f,     0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 0.0f,     0.0f, 0.0f,
-        // Second quadrant
-        0.0f, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 0.0f,     0.0f, 0.0f,
-        -1.0f, 0.0f, 0.0f, 0.0f,    0.0f, 0.0f,
-        // Third quadrant
-        0.0f, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f,
-        -1.0f, 0.0f, 0.0f, 0.0f,    0.0f, 0.0f,
-        0.0f,  0.0f,-1.0f, 0.0f,    0.0f, 0.0f,
-        // Fourth quadrant
-        0.0f, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f,
-        0.0f, 0.0f,-1.0f, 0.0f,     0.0f, 0.0f,
-        1.0f, 0.0f, 0.0f, 0.0f,     0.0f, 0.0f*/
-
-        -0.5f, -0.5f,      0.0f, 0.0f,
-        0.5f,  -0.5f,     1.0f, 0.0f,
-        -0.5f,  0.5f,      0.0f, 1.0f,
-
-        -0.5f, 0.5f,     0.0f, 1.0f,
-        0.5f, -0.5f,      1.0f, 0.0f,
-        0.5f, 0.5,     1.0f, 1.0f
-
-
-    }, 2u};
-    struct Camera{
-        glm::vec3 pos = glm::vec3(0.0f, 2.0f, 3.0f);
-        glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.0f);
-        glm::mat4 viewMatrix; //???
-        //float yaw = 0.0f, pitch = 1.0f;
-        void updateMatrix(){
-            //glm::vec3 dir = glm::normalize(pos - target);
-            //glm::vec3 right = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), dir));
-            glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);//glm::cross(dir, right);
-            viewMatrix = glm::lookAt(pos, target, up);
-        }
-    } camera;
 
     struct DrawableUniformLocations{
         GLint modelTrans, projTrans, viewTrans;
-    } renderFluidUniforms, raycastingPosUniforms, backgroundPlaneUniforms, integrateFluidUniforms, advectLSUniforms; // Possibly separate into different struct types?
+    } renderFluidUniforms, raycastingPosUniforms, backgroundPlaneUniforms; // Possibly separate into different struct types?
 
     struct RenderTarget{
         RenderTarget(unsigned int width, unsigned int height) : texture{width, height} {setUpBuffers();};
@@ -174,32 +96,65 @@ private:
         void releaseBuffers();
     } frontCube, backCube;
 
-    // Uniforms may need to be split up - separate shaders for different integrations?
-    // One shader: integarte fluid, another: advect scalar quantity
-    struct SimulatedQuantity{ // Should this just be scalar? Is velocity different??
-        //SimulatedQuantity(int numberOfComponents, std::vector<float> const& initialData); // 1, 2, 3 or 4 - else error! GL_RED, GL_RGB etc.
-        GLuint textureCurrent, uniformIntegrateShader, textureNext, uniformAdvectLSShader;
-    } levelSet, velocity, pressure;
-    GLuint uniformLevelSetFluid; // For renderFluidShader (uniforms above for integration)
-    //GLuint uniformVelocityScalar, uniformNextVelocityScalar; // For accessing velocity field when integrating scalars
-    GLuint uniformTimeStep;
-    GLuint uniformSlice;
-    ShaderProgram backgroundPlaneShader, raycastingPosShader, renderFluidShader, integrateFluidShader;
 
-    GLuint textureVelocityTemp;
+GLuint uniformLevelSetFluid; // For renderFluidShader
+ShaderProgram backgroundPlaneShader, raycastingPosShader, renderFluidShader;
 
-    // -----------
-        
-    void setUpSlices();
-    //void releaseSlices();
-    GLuint FBOVelocitySlice, FBOLevelSetSlice;
-    ShaderProgram advectLevelSetShader;
-    GLuint uniformLSVelocity, uniformSliceLS, uniformTimeStepLS;
-    GLuint uniformSliceIF, uniformTimeStepIF;
-
-
-
+///////////////////////////////////////////////////////////
+// FOR SIMULATING FLUID
+// -----------
     
+
+    struct SQ{
+        GLuint texture;
+        GLuint slabFBOs[gridSize];
+        void generateTexture(std::vector<float> data);
+        void generateFBOs();
+    } velocityCurrent, velocityNext, levelSetCurrent, levelSetNext, pressureCurrent, pressureNext, tempQuantity;
+
+    /// OLD
+ /*    struct SimulatedQuantity{ 
+        GLuint textureCurrent, textureNext;
+    } levelSet, velocity, pressure;
+    GLuint textureVelocityTemp; */
+
+    struct SlabOperation{
+        SlabOperation(const std::string vertexShaderPath, const std::string fragmentShaderPath);
+        ShaderProgram shader;
+        GLuint uniformZSlice, uniformTimeStep;
+        DrawableUniformLocations quadUniforms;
+    private:
+
+    };
+
+    struct innerSlabOp : public SlabOperation{
+        innerSlabOp(const std::string vertexShaderPath, const std::string fragmentShaderPath) : 
+            SlabOperation(vertexShaderPath, fragmentShaderPath){
+                // Z-Slice and timestep
+                uniformZSlice = shader.getUniformLocation("zSlice");
+                uniformTimeStep = shader.getUniformLocation("timeStep");
+
+                // Textures
+                glUniform1i(shader.getUniformLocation("velocityTexture"), 0);
+                glUniform1i(shader.getUniformLocation("levelSetTexture"), 1);
+                glUniform1i(shader.getUniformLocation("quantityTexture"), 2); // ***Issue: make this configurable
+
+            };
+    } advection, diffusion, forceApplication, passThrough, divergence, pressurePoisson, removeDivergence;
+
+    struct outerSlabOp : public SlabOperation{
+        outerSlabOp(const std::string vertexShaderPath, const std::string fragmentShaderPath) : 
+            SlabOperation(vertexShaderPath, fragmentShaderPath){
+                uniformZSlice = shader.getUniformLocation("zSlice");
+                glUniform1i(shader.getUniformLocation("quantityTexture"), 2); // ***Issue: make this configurable
+
+            };
+    } boundaryVelocity, boundaryLS, boundaryPressure, clearSlabs;
+
+    void applySlabOp(SlabOperation slabOp, SQ quantity, unsigned int frameTime, int layerFrom, int layerTo);
+    void applyInnerSlabOp(innerSlabOp slabOp, SQ quantity, unsigned int frameTime);
+    void applyOuterSlabOp(outerSlabOp slabOp, SQ quantity, unsigned int frameTime);
+/* 
     struct innerSlabOperation{
         innerSlabOperation(const std::string vertexShaderPath, const std::string fragmentShaderPath) :
             innerShader(vertexShaderPath, fragmentShaderPath)
@@ -287,7 +242,95 @@ private:
                     throw std::string("Failed to initialise framebuffer\n");
             quad.draw(GL_TRIANGLES);
         }
-    }
+    } */
+
+    /////////////////
+    //// 
+    /////////////////////////////////////////////////////////////////////////////////
+    
+    Drawable cube {{
+        // Back face
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, // SW
+        0.5f,  0.5f, -0.5f,  1.0f, 1.0f, // NE
+        0.5f, -0.5f, -0.5f,  1.0f, 0.0f, // SE         
+        0.5f,  0.5f, -0.5f,  1.0f, 1.0f, // NE
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, // SW
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, // NW
+        // Front face
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, // SW
+        0.5f, -0.5f,  0.5f,  1.0f, 0.0f, // SE
+        0.5f,  0.5f,  0.5f,  1.0f, 1.0f, // NE
+        0.5f,  0.5f,  0.5f,  1.0f, 1.0f, // NE
+        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f, // NW
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, // SW
+        // Left face
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // NE
+        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f, // NW
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // SW
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // SW
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, // SE
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // NE
+        // Right face
+        0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // NW
+        0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // SE
+        0.5f,  0.5f, -0.5f,  1.0f, 1.0f, // NE         
+        0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // SE
+        0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // NW
+        0.5f, -0.5f,  0.5f,  0.0f, 0.0f, // SW     
+        // Bottom face
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // NE
+        0.5f, -0.5f, -0.5f,  1.0f, 1.0f, // NW
+        0.5f, -0.5f,  0.5f,  1.0f, 0.0f, // SW
+        0.5f, -0.5f,  0.5f,  1.0f, 0.0f, // SW
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, // SE
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, // NE
+        // Top face
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, // NW
+        0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // SE
+        0.5f,  0.5f, -0.5f,  1.0f, 1.0f, // NE     
+        0.5f,  0.5f,  0.5f,  1.0f, 0.0f, // SE
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, // NW
+        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f  // SW  
+    }, 3u};
+    Drawable quad{{
+        1.0f, 0.0f,   1.0f, 0.0f,   // SE
+        1.0f, 1.0f,   1.0f, 1.0f,   // NE
+        0.0f, 0.0f,   0.0f, 0.0f,   // SW
+        1.0f, 1.0f,   1.0f, 1.0f,   // NE
+        0.0f, 0.0f,   0.0f, 0.0f,   // SW
+        0.0f, 1.0f,   0.0f, 1.0f    // NW
+    }, 2u};
+    Drawable backgroundPlane{{
+        /*// First quadrant
+        0.0f, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f, 0.0f,     0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,     0.0f, 0.0f,
+        // Second quadrant
+        0.0f, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,     0.0f, 0.0f,
+        -1.0f, 0.0f, 0.0f, 0.0f,    0.0f, 0.0f,
+        // Third quadrant
+        0.0f, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f,
+        -1.0f, 0.0f, 0.0f, 0.0f,    0.0f, 0.0f,
+        0.0f,  0.0f,-1.0f, 0.0f,    0.0f, 0.0f,
+        // Fourth quadrant
+        0.0f, 0.0f, 0.0f, 1.0f,     0.0f, 0.0f,
+        0.0f, 0.0f,-1.0f, 0.0f,     0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f, 0.0f,     0.0f, 0.0f*/
+
+        -0.5f, -0.5f,      0.0f, 0.0f,
+        0.5f,  -0.5f,     1.0f, 0.0f,
+        -0.5f,  0.5f,      0.0f, 1.0f,
+
+        -0.5f, 0.5f,     0.0f, 1.0f,
+        0.5f, -0.5f,      1.0f, 0.0f,
+        0.5f, 0.5,     1.0f, 1.0f
+
+
+    }, 2u};
+    /////////////////////////////////////////////////////////////
+
+
 };
 
 #endif
