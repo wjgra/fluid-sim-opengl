@@ -24,27 +24,27 @@ void main(){
 
     if (TextureCoord.x<step){
         offset = vec3(step, 0.0f, 0.0f);
-        FragColor = -sampleQuantity(offset);
+        FragColor = -sampleQuantity(offset);// * vec4(-1.0f, 1.0f, 1.0f, 1.0f);
     }
     else if (TextureCoord.x>1-step){
         offset = vec3(-step, 0.0f, 0.0f);
-        FragColor = -sampleQuantity(offset);
+        FragColor = -sampleQuantity(offset);// * vec4(-1.0f, 1.0f, 1.0f, 1.0f);
     }
     else if (TextureCoord.y<step){
         offset = vec3( 0.0f, step,0.0f);
-        FragColor = -sampleQuantity(offset); 
+        FragColor = -sampleQuantity(offset);// * vec4(1.0f, -1.0f, 1.0f, 1.0f);
     }
     else if (TextureCoord.y>1-step){
         offset = vec3(0.0f, -step,0.0f);
-        FragColor = -sampleQuantity(offset);
+        FragColor = -sampleQuantity(offset);// * vec4(1.0f, -1.0f, 1.0f, 1.0f);
     }
     else if (zSlice == 0){
         offset = vec3(0.0f, 0.0f, step);
-        FragColor = -sampleQuantity(offset);
+        FragColor = -sampleQuantity(offset);// * vec4(1.0f, 1.0f, -1.0f, 1.0f);
     }
     else if (zSlice == gridSize-1){
         offset = vec3(0.0f, 0.0f, -step);
-        FragColor = -sampleQuantity(offset);
+        FragColor = -sampleQuantity(offset);// * vec4(1.0f, 1.0f, -1.0f, 1.0f);
     }
     else{
         FragColor = sampleQuantity(offset);

@@ -210,9 +210,43 @@ void FluidRenderer::frame(unsigned int frameTime){
 };
 
 void FluidRenderer::handleEvents(SDL_Event const& event){
-    if (event.type == SDL_MOUSEBUTTONDOWN){/*std::swap(levelSet.textureCurrent, levelSet.textureNext);*/}
-    else if (event.type == SDL_MOUSEBUTTONUP){}
-    else if(event.type == SDL_MOUSEMOTION){};
+   // if (event.type == SDL_MOUSEBUTTONDOWN){/*std::swap(levelSet.textureCurrent, levelSet.textureNext);*/}
+   // else if (event.type == SDL_MOUSEBUTTONUP){}
+    //else if(event.type == SDL_MOUSEMOTION){};
+
+   switch(event.type){
+        case SDL_KEYDOWN:
+            switch(event.key.keysym.scancode){
+                case SDL_SCANCODE_UP:
+                    gravityRotatingPos = true;
+                break;
+
+                case SDL_SCANCODE_DOWN:
+                    gravityRotatingNeg = true;
+                break;
+                case SDL_SCANCODE_G:
+                    resetGravity = true;
+                    break;
+                default:
+                break;
+            }
+            break;
+        case SDL_KEYUP:
+            switch(event.key.keysym.scancode){
+                case SDL_SCANCODE_UP:
+                    gravityRotatingPos = false;
+                break;
+
+                case SDL_SCANCODE_DOWN:
+                    gravityRotatingNeg = false;
+                break;
+                default:
+                break;
+            }
+            break;
+        default:
+        break;
+    }
 };
 
 
@@ -286,6 +320,11 @@ void FluidRenderer::setDrawableUniformValues(){
     // Set up uniform for level set texture
     uniformLevelSetFluid = renderFluidShader.getUniformLocation("levelSetTexture");
     glUniform1i(uniformLevelSetFluid, 2);
+
+    forceApplication.innerShader.useProgram();
+    uniformGravityDirection = forceApplication.innerShader.getUniformLocation("gravityDirection");
+    glUniform1f(uniformGravityDirection, gravityDirection);
+
 }
 
 // Generate 3D textures and set initial values for level set, velocity and pressure
@@ -301,6 +340,7 @@ void FluidRenderer::setUpFluidData(){
     }*/
 
     // Improved level set data (0 around fluid) - still need to add border I suppose
+    /*
     for (int k = 0; k < gridSize; ++k){
         for (int j = 0 ; j < gridSize; ++j){
             for (int i = 0; i < gridSize; ++i){
@@ -333,29 +373,35 @@ void FluidRenderer::setUpFluidData(){
                 }
             }
         }
-    }
+    }*/
+
     
     // Yet further improved level set data (inc border, allowing for BCs to be used)
+    
+    //auto start = std::chrono::high_resolution_clock::now();
 
     for (int k = 0; k < gridSize; ++k){
-        for (int j = 0 ; j < gridSize; ++j){
+       for (int j = 0 ; j < gridSize; ++j){
             for (int i = 0; i < gridSize; ++i){
                 //location of (i,j,k) in texture data is 4 * gridSize * gridSize * k + 4 * gridSize * j + 4 * i
+                int index = 4 * gridSize * gridSize * k + 4 * gridSize * j + 4 * i;
+                // index = 4 * gridSize * gridSize * k + 4 * gridSize * (gridSize - 1 - j) + 4 * i; // flip fluid in y direction
                 // bottom layer is just outside fluid
                 if ( j == 0){
-                    tempSetData[4 * gridSize * gridSize * k + 4 * gridSize * j + 4 * i] = 1;
+                    tempSetData[index] = 0.5f;// Must be 0.5 so = 0 on bdry
                 }
 
-                // top 'half' decrements to 1 in j=gridSize/2 + 1 layer
+                // top 'half' decrements to 0.5 in j=gridSize/2 + 1 layer
                 else if (j > gridSize/2){
-                    tempSetData[4 * gridSize * gridSize * k + 4 * gridSize * j + 4 * i] = j - gridSize/2;
+                    tempSetData[index] = 0.5f; //same everywhere outside?
+                    //tempSetData[index] = j - gridSize/2 - 0.5f;
                 }
             
-                // bottom 'half': j in [1,gridSize/2] 1s around outside, then 0s, then -ve
+                // bottom 'half': j in [1,gridSize/2] 0.5f around outside, then -0.5f (to ensure 0 on bdry), then decrement inwards
                 else{
                     
                     if (i == 0 || k == 0 || i == gridSize-1 || k == gridSize-1){//edges
-                        tempSetData[4 * gridSize * gridSize * k + 4 * gridSize * j + 4 * i] = 1;
+                        tempSetData[index] = 0.5f;
                     }
                     else{// Manhattan distance to edge
 
@@ -364,7 +410,9 @@ void FluidRenderer::setUpFluidData(){
                     tempDist = std::min(tempDist, j-1);
                     tempDist = std::min(tempDist, gridSize/2-j);
 
-                    tempSetData[4 * gridSize * gridSize * k + 4 * gridSize * j + 4 * i] = -tempDist;
+                    tempDist += 0.5f;// Bdry condition correction
+
+                    tempSetData[index] = -tempDist;
 
 
                     }
@@ -372,8 +420,22 @@ void FluidRenderer::setUpFluidData(){
             }
         }
     }
+    
+    //auto end = std::chrono::high_resolution_clock::now();
 
+    //std::cout << std::chrono::duration_cast<std::chrono::microseconds>(end-start).count() << "\n";
+    /*
+    for (int i = 0; i < tempSetData.size(); i += 4){
+        if (tempSetData[i] < 0.0f){
+            tempSetData[i] = -0.5f;
+        }
+        else
+        {
+            tempSetData[i] = 0.5f;
+        }
+    }*/
 
+    levelSetAsymptote = tempSetData;
 
     glGenTextures(1, &levelSet.textureCurrent);
     //glActiveTexture(GL_TEXTURE0 + 2);
@@ -531,13 +593,36 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     glViewport(0,0,gridSize, gridSize); // change to slab-op later 
     glEnable(GL_SCISSOR_TEST);
     
-
-    glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
     glActiveTexture(GL_TEXTURE0 + 1);
     glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent);
 
+    // Apply force to velocity
+    
+    if (resetGravity){
+        gravityDirection = 0.0f;
+        resetGravity = false;
+    
+    }
+    else if (gravityRotatingPos){
+        gravityDirection += frameTime * gravityRotSpeed;
+    }
+    else if (gravityRotatingNeg){
+        gravityDirection -= frameTime * gravityRotSpeed;
+    }
+
+    forceApplication.innerShader.useProgram();
+    glUniform1f(uniformGravityDirection, gravityDirection); 
+
+    glActiveTexture(GL_TEXTURE0 + 2);
+    glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent); // pos = 2
+    applyInnerSlabOperation(forceApplication, frameTime, velocity.textureNext);
+    std::swap(velocity.textureCurrent, velocity.textureNext);
+
+
     // Velocity BC
+    glActiveTexture(GL_TEXTURE0 + 0);
+    glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
+
     glActiveTexture(GL_TEXTURE0 + 2);
     glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent); // bind advected quantity to pos = 2
     
@@ -601,9 +686,9 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
    /// glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent);
     // ***
     // Apply force to velocity
-    glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent); // pos = 2
-    applyInnerSlabOperation(forceApplication, frameTime, velocity.textureNext);
-    std::swap(velocity.textureCurrent, velocity.textureNext);
+    //glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent); // pos = 2
+    //applyInnerSlabOperation(forceApplication, frameTime, velocity.textureNext);
+    //std::swap(velocity.textureCurrent, velocity.textureNext);
 
     // *Remove divergence from velocity*
 
@@ -670,7 +755,7 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     applyInnerSlabOperation(removeDivergence, frameTime, velocity.textureNext);
     std::swap(velocity.textureCurrent, velocity.textureNext);
 
-
+    /*
     // Enforce no-slip (should this be before pressure subtraction?)
 
     glActiveTexture(GL_TEXTURE0 + 2);
@@ -681,7 +766,7 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     
     applyOuterSlabOperation(boundaryVelocity, velocity.textureNext);
     std::swap(velocity.textureCurrent, velocity.textureNext);
-
+    */
     // ////
 
     std::swap(levelSet.textureCurrent, levelSet.textureNext); // consider moving up to ***

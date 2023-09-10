@@ -16,7 +16,7 @@ const float step = 1.0f/gridSize;
 
 void main(){
     levelSetTexture;timeStep;
-
+    
     float quantityPosX = texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step) + vec3(step, 0.0f, 0.0f)).x;
     float quantityNegX = texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step) + vec3(-step, 0.0f, 0.0f)).x;
     float quantityPosY = texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step) + vec3(0.0f, step, 0.0f)).x;
@@ -30,6 +30,8 @@ void main(){
             (quantityPosY - quantityNegY)/(2 * step),
             (quantityPosZ - quantityNegZ)/(2 * step),
             0.0f);
+
+    //FragColor = vec4(1e-7, 1e-7, 0.0f, 0.0f);
     // Check if non-zero solution to Poisson eqn
     if (quantityPosY != 0.0f || quantityNegY != 0.0f || quantityNegX != 0.0f || quantityPosX != 0.0f || quantityNegZ != 0.0f || quantityPosZ != 0.0f){
         //FragColor += vec4(0.0f, 1e-5, 0.0f, 0.0f);

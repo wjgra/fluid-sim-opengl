@@ -12,6 +12,8 @@ uniform sampler3D quantityTexture; // might be either of the above!
 uniform float timeStep; // in microseconds
 uniform int zSlice;
 
+uniform float gravityDirection = 0.0f; // Deviation from vertical (rotate around z-axis)
+
 const float step = 1.0f/gridSize;
 
 vec3 applyGravity(){
@@ -19,13 +21,7 @@ vec3 applyGravity(){
     vec3 vel = texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step)).xyz;
     if (levelSetValue <= 0){
         //vel += vec3(-1e-13 * timeStep, 0.0f, 0.0f);
-        vel += vec3(0.0f, -1e-13 * timeStep, 0.0f);
-    }
-    else{
-        //vel = vec3(0.0f, 0.0f, 0.0f); // Not really the place for it...
-    }
-    if (TextureCoord.x < 0.3f){
-        //vel += vec3(1e-13 * timeStep, 0.0f, 0.0f);
+        vel += vec3(1e-13 * timeStep * sin(gravityDirection), -1e-13 * timeStep * cos(gravityDirection), 0.0f);
     }
     return vel;
 }

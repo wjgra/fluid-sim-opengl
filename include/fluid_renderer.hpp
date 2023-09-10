@@ -13,6 +13,8 @@
 #include <iostream>
 #include <vector>
 #include <string>
+//#include <algorithm>
+#include <chrono>
 
 #define GLM_FORCE_PURE
 #include <glm/glm.hpp>
@@ -43,10 +45,18 @@ private:
     float vertRot = 0.0f;
     float horizRotSpeed = glm::radians(600.0f)*1e-6;
     float const planeSize = 10.0f;
+    float gravityDirection = 0.0f; GLint uniformGravityDirection; 
+    float const gravityRotSpeed = glm::radians(6.0f)*1e-5;
+    bool gravityRotatingPos = false;
+    bool gravityRotatingNeg = false;
+    bool resetGravity = false;
 
     int const numJacobiIterations = 25;//50;
-    int const numJacobiIterationsPressure = 50;
+    int const numJacobiIterationsPressure = 100;;
     
+    std::vector<float> levelSetAsymptote;
+
+
     struct Drawable{
         Drawable(std::vector<float> const& verts, unsigned int vertexDimension) : vertices{verts}{setUpBuffers(vertexDimension);};
         ~Drawable(){releaseBuffers();}
@@ -141,7 +151,7 @@ private:
         glm::vec3 pos = glm::vec3(0.0f, 2.0f, 3.0f);
         glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.0f);
         glm::mat4 viewMatrix; //???
-        float yaw = 0.0f, pitch = 1.0f;
+        //float yaw = 0.0f, pitch = 1.0f;
         void updateMatrix(){
             //glm::vec3 dir = glm::normalize(pos - target);
             //glm::vec3 right = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), dir));
