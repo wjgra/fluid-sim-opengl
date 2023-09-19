@@ -11,15 +11,17 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     // Slab operations
     advection(".//shaders//slab_operation.vert", ".//shaders//advect_quantity.frag", {"velocityTexture", "quantityTexture"}),
     diffusion(".//shaders//slab_operation.vert", ".//shaders//diffuse_quantity.frag", {"quantityTexture"}),
-    forceApplication(".//shaders//slab_operation.vert", ".//shaders//apply_force_to_quantity.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
-    passThrough(".//shaders//slab_operation.vert", ".//shaders//pass_through.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
+    forceApplication(".//shaders//slab_operation.vert", ".//shaders//apply_force_to_velocity.frag", {"velocityTexture", "levelSetTexture"}),
+    passThrough(".//shaders//slab_operation.vert", ".//shaders//pass_through.frag", {"quantityTexture"}),
+
     boundaryVelocity(".//shaders//slab_operation.vert", ".//shaders//boundary_velocity.frag", {"", "", "quantityTexture"}),
     boundaryLS(".//shaders//slab_operation.vert", ".//shaders//boundary_levelset.frag", {"", "", "quantityTexture"}),
     boundaryPressure(".//shaders//slab_operation.vert", ".//shaders//boundary_pressure.frag", {"", "", "quantityTexture"}),
-    pressurePoisson(".//shaders//slab_operation.vert", ".//shaders//pressure_poisson.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
-    divergence(".//shaders//slab_operation.vert", ".//shaders//divergence.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
-    removeDivergence(".//shaders//slab_operation.vert", ".//shaders//remove_divergence.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
-    clearSlabs(".//shaders//slab_operation.vert", ".//shaders//clear_slabs.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"})
+    
+    pressurePoisson(".//shaders//slab_operation.vert", ".//shaders//pressure_poisson.frag", {"pressureTexture", "levelSetTexture", "divergenceTexture"}),
+    divergence(".//shaders//slab_operation.vert", ".//shaders//divergence.frag", {"velocityTexture"}),
+    removeDivergence(".//shaders//slab_operation.vert", ".//shaders//remove_divergence.frag", {"velocityTexture", "pressureTexture"}),
+    clearSlabs(".//shaders//slab_operation.vert", ".//shaders//clear_slabs.frag", {})
 {   
     setUpFluidRenderShaders();
     setUpFluidSimulationTextures();
@@ -238,7 +240,6 @@ void FluidRenderer::renderBackground(){
 
 // 
 void FluidRenderer::integrateFluid(unsigned int frameTime){
-    //std::cout << "1\n";
     // Update gravity vector ///// should this be here?
     if (resetGravity){
         gravityDirection = 0.0f;
@@ -257,20 +258,17 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     glViewport(0,0,gridSize, gridSize);
     glEnable(GL_SCISSOR_TEST);
     
-    
+    // Apply force to velocity
+    glActiveTexture(GL_TEXTURE0 + 0);
+    glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
     glActiveTexture(GL_TEXTURE0 + 1);
     glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
 
-    // Apply force to velocity
     forceApplication.shader.useProgram();
-    glUniform1f(uniformGravityDirection, gravityDirection); ////// gravity!!!
-
-    glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture); // pos = 2
+    glUniform3f(uniformGravityDirection, std::sin(gravityDirection), -1.0f * std::cos(gravityDirection), 0.0f);
     applyInnerSlabOp(forceApplication, velocityNext, frameTime);
     std::swap(velocityCurrent, velocityNext);
 
-    //std::cout << "2\n";
     // Velocity BC
     glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
@@ -311,14 +309,12 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
 
+    // pass through current velocity to temp velocity, which is used as 0th iteration
+    applyInnerSlabOp(passThrough, tempQuantity, frameTime);
+    
     // Re-bind velocity as quantity to be altered in pos = 2
     glActiveTexture(GL_TEXTURE0 + 2);
     glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-
-    // pass through current velocity to temp velocity, which is used as 0th iteration
-    applyInnerSlabOp(passThrough, tempQuantity, frameTime);
-    // then bind temp velocity to pos = 2 
-    //glBindTexture(GL_TEXTURE_3D, textureVelocityTemp);
 
     // Diffuse velocity
     glActiveTexture(GL_TEXTURE0 + 0);
@@ -332,16 +328,6 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
         
     std::swap(velocityCurrent, tempQuantity); // Swap final iteration into current velocity
 
-    // *** force is currently based on old level set - move swap to here and rebind LS to base it on new LS
-    //std::swap(levelSet.textureCurrent, levelSet.textureNext);
-    //glActiveTexture(GL_TEXTURE0 + 1);
-   /// glBindTexture(GL_TEXTURE_3D, levelSet.textureCurrent);
-    // ***
-    // Apply force to velocity
-    //glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent); // pos = 2
-    //applyInnerSlabOperation(forceApplication, frameTime, velocity.textureNext);
-    //std::swap(velocity.textureCurrent, velocity.textureNext);
-
     // *Remove divergence from velocity*
 
     // Apply velocity BC (must be done to ensure correct divergence at bdries)
@@ -352,6 +338,7 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     std::swap(velocityCurrent, velocityNext);
 
     // Compute div of currentVelocity (store in textureVelocityTemp)
+    glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
     applyInnerSlabOp(divergence, tempQuantity, frameTime);
 
@@ -361,68 +348,38 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
 
 
     // Bindings
-    glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_3D, pressureCurrent.texture);
-
     glActiveTexture(GL_TEXTURE0 + 1);
     glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
-
-    glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_3D, tempQuantity.texture); // div(velocity)
 
     // Solve Poisson eqn 
     for (int i = 0; i < numJacobiIterationsPressure; ++i){
         // Pressure BC
         glActiveTexture(GL_TEXTURE0 + 2);
         glBindTexture(GL_TEXTURE_3D, pressureCurrent.texture);
-
-        //glActiveTexture(GL_TEXTURE0 + 1);
-        //glBindTexture(GL_TEXTURE_3D, pressure.textureNext);
-        
         applyOuterSlabOp(boundaryPressure, pressureNext, frameTime);
         std::swap(pressureCurrent, pressureNext);
 
         // Iteration (kth iteration in current, k+1th in next)
         glActiveTexture(GL_TEXTURE0 + 0);
-        glBindTexture(GL_TEXTURE_3D, pressureCurrent.texture);
+        glBindTexture(GL_TEXTURE_3D, pressureCurrent.texture); // pressure
          glActiveTexture(GL_TEXTURE0 + 2);
-        glBindTexture(GL_TEXTURE_3D, tempQuantity.texture);
-
-        //glActiveTexture(GL_TEXTURE0 + 1);
-        //glBindTexture(GL_TEXTURE_3D, pressure.textureNext);
-        // above re-binding could be avoided by relabelling in shader...
+        glBindTexture(GL_TEXTURE_3D, tempQuantity.texture); // div(velocity)
         applyInnerSlabOp(pressurePoisson, pressureNext, frameTime);
-
         std::swap(pressureCurrent, pressureNext);
     }
 
     // Subtract grad(pressure) from currentVelocity
     glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-
-    glActiveTexture(GL_TEXTURE0 + 2);
+    glActiveTexture(GL_TEXTURE0 + 1);
     glBindTexture(GL_TEXTURE_3D, pressureCurrent.texture);
-
     applyInnerSlabOp(removeDivergence, velocityNext, frameTime);
     std::swap(velocityCurrent, velocityNext);
 
-    /*
-    // Enforce no-slip (should this be before pressure subtraction?)
-
-    glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent);
-
-    //glActiveTexture(GL_TEXTURE0 + 2);
-    //glBindTexture(GL_TEXTURE_3D, velocity.textureCurrent); // bind advected quantity to pos = 2
-    
-    applyOuterSlabOperation(boundaryVelocity, velocity.textureNext);
-    std::swap(velocity.textureCurrent, velocity.textureNext);
-    */
-    // ////
-
     std::swap(levelSetCurrent, levelSetNext); // consider moving up to ***
-    glDisable(GL_SCISSOR_TEST);
+
     // Tidy up
+    glDisable(GL_SCISSOR_TEST);
     glViewport(0,0,screenWidth,screenHeight);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glActiveTexture(GL_TEXTURE0 + 0);
@@ -617,5 +574,6 @@ void FluidRenderer::applyInnerSlabOp(innerSlabOp slabOp, SQ quantity, unsigned i
 
 void FluidRenderer::applyOuterSlabOp(outerSlabOp slabOp, SQ quantity, unsigned int frameTime){
     glScissor(0,0,gridSize,gridSize);
+    //glScissor(0,0,1,gridSize);
     applySlabOp(slabOp, quantity, frameTime, 0, gridSize);
 }
