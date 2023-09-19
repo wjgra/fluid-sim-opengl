@@ -57,7 +57,10 @@ private:
     int const numJacobiIterations = 25;//50;
     int const numJacobiIterationsPressure = 75;
 
-    
+    // Timing variables
+    int initTime = 0, bgTime = 0, intTime = 0, renTime = 0;
+    int frameNo = 0;
+
     // FOR RENDERING fluid
 
     struct Camera{

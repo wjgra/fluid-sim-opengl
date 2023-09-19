@@ -164,7 +164,7 @@ void FluidRenderer::setUpFluidSimulationTextures(){
     
 };
 
-// Generates a new 3D RGBA32F texture with the given input as the initial data
+// Generates a new 3D RGBA floating-point texture with the given input as the initial data
 void FluidRenderer::SQ::generateTexture(std::vector<float> data){
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_3D, texture);
@@ -202,6 +202,7 @@ void FluidRenderer::SQ::generateFBOs(){
 }
 
 void FluidRenderer::frame(unsigned int frameTime){
+    auto t0 = std::chrono::high_resolution_clock::now();
     // ***Refactor: Update camera
     horizRot += frameTime * horizRotSpeed;
     camera.pos = glm::vec3(glm::rotate(glm::mat4(1.0f), glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0.0f, 2.0f, 3.0f, 1.0f));
@@ -209,9 +210,23 @@ void FluidRenderer::frame(unsigned int frameTime){
     
     glDisable(GL_CULL_FACE); // is this needed????
 
+    auto t1 = std::chrono::high_resolution_clock::now();
+    initTime += std::chrono::duration_cast<std::chrono::microseconds>(t1-t0).count();
     renderBackground();
+    auto t2 = std::chrono::high_resolution_clock::now();
+    bgTime += std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
     integrateFluid(frameTime);
+    auto t3 = std::chrono::high_resolution_clock::now();
+    intTime += std::chrono::duration_cast<std::chrono::microseconds>(t3-t2).count();
     renderFluid();
+    auto t4 = std::chrono::high_resolution_clock::now();
+    renTime += std::chrono::duration_cast<std::chrono::microseconds>(t4-t3).count();
+    ++frameNo;
+    if (frameNo == 100){
+        frameNo = 0;
+        //std::cout << "Init: " << 0.01f * initTime << " Bg: " << 0.01f * bgTime << " Int: " << 0.01f * intTime << " Ren: " << 0.01f * renTime << "\n";
+        initTime = 0; bgTime = 0; intTime = 0; renTime = 0;
+    }
 }
 
 // Renders a patterned plane below the fluid using the current camera viewpoint
@@ -237,8 +252,6 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
         gravityDirection -= frameTime * gravityRotSpeed;
     }
     ///////////////////
-    
-    
    
     glDisable(GL_BLEND);
     glViewport(0,0,gridSize, gridSize);

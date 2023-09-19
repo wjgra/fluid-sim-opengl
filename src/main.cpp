@@ -20,6 +20,14 @@ void mainLoopCallback(void* appState){
 }
 #endif
 
+// #define FORCE_DEDICATED_NVIDIA_GPU
+#ifdef FORCE_DEDICATED_NVIDIA_GPU
+extern "C" 
+{
+  __declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
+}
+#endif
+
 int main(){
     try{
         // Initialise window, openGL context and game state

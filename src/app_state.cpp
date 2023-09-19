@@ -55,7 +55,7 @@ void AppState::handleEvents(SDL_Event const&  event){
 
 }
 
-void AppState::frame(unsigned int frameTime){ // Move to app state frame()
+void AppState::frame(unsigned int frameTime){
     // Clear buffer
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

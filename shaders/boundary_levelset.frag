@@ -61,7 +61,7 @@ void main(){
         FragColor.x *= -1.0f;
     }
     else{
-        FragColor.x += 1.0f;
+        //FragColor.x += 1.0f;
     }
 
 
