@@ -3,46 +3,35 @@ out vec4 FragColor;
 
 in vec2 TextureCoord;
 
-const int gridSize = 32;
-
-uniform sampler3D velocityTexture;
-uniform sampler3D levelSetTexture;
 uniform sampler3D quantityTexture;
 
 uniform float timeStep; // in microseconds
 uniform float zSlice;
 
+const int gridSize = 32;
 const float step = 1.0f/gridSize;
 
-const float viscosity = 0;//1e-4;//1e-3; // Currently like honey! Needs to be lower for water
-const int numJacobiIterations = 50;
+vec3 lookUpCoords = vec3(TextureCoord, zSlice * step + 0.5f * step);
 
-vec3 diffuseQuantity(){
+const float viscosity = 0.0f;//1e-4;//1e-3; // Currently like honey! Needs to be lower for water
+
+vec4 diffuseQuantity(){
     // Perform one jacobi iteration
-    vec3 prevQuantity = texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step)).xyz;
-    vec3 tempQuantity;// = prevQuantity;
+    vec4 prevQuantity = texture(quantityTexture, lookUpCoords);
 
-    float beta = viscosity * timeStep * step * step;
+    vec4 quantityPosX = texture(quantityTexture, lookUpCoords + vec3(step, 0.0f, 0.0f));
+    vec4 quantityNegX = texture(quantityTexture, lookUpCoords + vec3(-step, 0.0f, 0.0f));
+    vec4 quantityPosY = texture(quantityTexture, lookUpCoords + vec3(0.0f, step, 0.0f));
+    vec4 quantityNegY = texture(quantityTexture, lookUpCoords + vec3(0.0f, -step, 0.0f));
+    vec4 quantityPosZ = texture(quantityTexture, lookUpCoords + vec3(0.0f, 0.0f, step));
+    vec4 quantityNegZ = texture(quantityTexture, lookUpCoords + vec3(0.0f, 0.0f, -step));
 
-    float alpha = 1.0f/(1.0f + 6*beta);
+    float beta = (viscosity * timeStep) * (step * step); // these are the same for all fragments - consider precalculating
+    float alpha = 1.0f/(6.0f * beta + 1.0f);
 
-    
-    //for (int i = 0 ; i < numJacobiIterations ; ++i){
-
-        vec3 quantityPosX = texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step) + vec3(step, 0.0f, 0.0f)).xyz;
-        vec3 quantityNegX = texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step) + vec3(-step, 0.0f, 0.0f)).xyz;
-        vec3 quantityPosY = texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step) + vec3(0.0f, step, 0.0f)).xyz;
-        vec3 quantityNegY = texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step) + vec3(0.0f, -step, 0.0f)).xyz;
-        vec3 quantityPosZ = texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step) + vec3(0.0f, 0.0f, step)).xyz;
-        vec3 quantityNegZ = texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step) + vec3(0.0f, 0.0f, -step)).xyz;
-
-        tempQuantity = alpha * (prevQuantity + beta * (quantityNegX + quantityPosX + quantityNegY + quantityPosY + quantityNegZ + quantityPosZ));
-
-    //}
-    return tempQuantity;
+    return alpha * prevQuantity + (alpha * beta) * (quantityNegX + quantityPosX + quantityNegY + quantityPosY + quantityNegZ + quantityPosZ);
 }
 
 void main(){
-    levelSetTexture;velocityTexture;
-    FragColor = vec4(diffuseQuantity(), 0.0f);
+    FragColor = diffuseQuantity();
 }

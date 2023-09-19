@@ -9,8 +9,8 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     raycastingPosShader(".//shaders//raycasting_pos.vert", ".//shaders//raycasting_pos.frag"),
     renderFluidShader(".//shaders//fluid.vert", ".//shaders//fluid.frag"),
     // Slab operations
-    advection(".//shaders//slab_operation.vert", ".//shaders//advect_quantity.frag", {"velocityTexture", "", "quantityTexture"}),
-    diffusion(".//shaders//slab_operation.vert", ".//shaders//diffuse_quantity.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
+    advection(".//shaders//slab_operation.vert", ".//shaders//advect_quantity.frag", {"velocityTexture", "quantityTexture"}),
+    diffusion(".//shaders//slab_operation.vert", ".//shaders//diffuse_quantity.frag", {"quantityTexture"}),
     forceApplication(".//shaders//slab_operation.vert", ".//shaders//apply_force_to_quantity.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
     passThrough(".//shaders//slab_operation.vert", ".//shaders//pass_through.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
     boundaryVelocity(".//shaders//slab_operation.vert", ".//shaders//boundary_velocity.frag", {"", "", "quantityTexture"}),
@@ -286,15 +286,15 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
 
     glActiveTexture(GL_TEXTURE0 + 1);
-    glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
-
-    glActiveTexture(GL_TEXTURE0 + 2);
     glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
     applyInnerSlabOp(advection, velocityNext, frameTime);
 
     //Level set BC
 
-    glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture); // Bind to pos 2
+    glActiveTexture(GL_TEXTURE0 + 1);
+    glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
+    glActiveTexture(GL_TEXTURE0 + 2);
+    glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
     
     applyOuterSlabOp(boundaryLS, levelSetNext, frameTime);
     std::swap(levelSetCurrent, levelSetNext);
@@ -321,6 +321,7 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     //glBindTexture(GL_TEXTURE_3D, textureVelocityTemp);
 
     // Diffuse velocity
+    glActiveTexture(GL_TEXTURE0 + 0);
     for (int i = 0; i < numJacobiIterations; ++i){
         glBindTexture(GL_TEXTURE_3D, tempQuantity.texture);
         // Render into next velocity (kth iterate is in temp, k+1th in next)
