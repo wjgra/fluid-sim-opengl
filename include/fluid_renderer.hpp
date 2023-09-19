@@ -122,34 +122,26 @@ ShaderProgram backgroundPlaneShader, raycastingPosShader, renderFluidShader;
     GLuint textureVelocityTemp; */
 
     struct SlabOperation{
-        SlabOperation(const std::string vertexShaderPath, const std::string fragmentShaderPath);
+        SlabOperation(const std::string vertexShaderPath, const std::string fragmentShaderPath, std::vector<std::string> textureNames);
         ShaderProgram shader;
         GLuint uniformZSlice, uniformTimeStep;
         DrawableUniformLocations quadUniforms;
-    private:
-
     };
 
     struct innerSlabOp : public SlabOperation{
-        innerSlabOp(const std::string vertexShaderPath, const std::string fragmentShaderPath) : 
-            SlabOperation(vertexShaderPath, fragmentShaderPath){
+        innerSlabOp(const std::string vertexShaderPath, const std::string fragmentShaderPath, std::vector<std::string> textureNames) : 
+            SlabOperation(vertexShaderPath, fragmentShaderPath, textureNames){
                 // Z-Slice and timestep
                 uniformZSlice = shader.getUniformLocation("zSlice");
                 uniformTimeStep = shader.getUniformLocation("timeStep");
-
-                // Textures
-                glUniform1i(shader.getUniformLocation("velocityTexture"), 0);
-                glUniform1i(shader.getUniformLocation("levelSetTexture"), 1);
-                glUniform1i(shader.getUniformLocation("quantityTexture"), 2); // ***Issue: make this configurable
 
             };
     } advection, diffusion, forceApplication, passThrough, divergence, pressurePoisson, removeDivergence;
 
     struct outerSlabOp : public SlabOperation{
-        outerSlabOp(const std::string vertexShaderPath, const std::string fragmentShaderPath) : 
-            SlabOperation(vertexShaderPath, fragmentShaderPath){
+        outerSlabOp(const std::string vertexShaderPath, const std::string fragmentShaderPath, std::vector<std::string> textureNames) : 
+            SlabOperation(vertexShaderPath, fragmentShaderPath, textureNames){
                 uniformZSlice = shader.getUniformLocation("zSlice");
-                glUniform1i(shader.getUniformLocation("quantityTexture"), 2); // ***Issue: make this configurable
 
             };
     } boundaryVelocity, boundaryLS, boundaryPressure, clearSlabs;

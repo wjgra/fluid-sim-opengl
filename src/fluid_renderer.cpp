@@ -9,17 +9,17 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     raycastingPosShader(".//shaders//raycasting_pos.vert", ".//shaders//raycasting_pos.frag"),
     renderFluidShader(".//shaders//fluid.vert", ".//shaders//fluid.frag"),
     // Slab operations
-    advection(".//shaders//slab_operation.vert", ".//shaders//advect_velocity.frag"),
-    diffusion(".//shaders//slab_operation.vert", ".//shaders//diffuse_quantity.frag"),
-    forceApplication(".//shaders//slab_operation.vert", ".//shaders//apply_force_to_quantity.frag"),
-    passThrough(".//shaders//slab_operation.vert", ".//shaders//pass_through.frag"),
-    boundaryVelocity(".//shaders//slab_operation.vert", ".//shaders//boundary_velocity.frag"),
-    boundaryLS(".//shaders//slab_operation.vert", ".//shaders//boundary_levelset.frag"),
-    boundaryPressure(".//shaders//slab_operation.vert", ".//shaders//boundary_pressure.frag"),
-    pressurePoisson(".//shaders//slab_operation.vert", ".//shaders//pressure_poisson.frag"),
-    divergence(".//shaders//slab_operation.vert", ".//shaders//divergence.frag"),
-    removeDivergence(".//shaders//slab_operation.vert", ".//shaders//remove_divergence.frag"),
-    clearSlabs(".//shaders//slab_operation.vert", ".//shaders//clear_slabs.frag")
+    advection(".//shaders//slab_operation.vert", ".//shaders//advect_velocity.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
+    diffusion(".//shaders//slab_operation.vert", ".//shaders//diffuse_quantity.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
+    forceApplication(".//shaders//slab_operation.vert", ".//shaders//apply_force_to_quantity.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
+    passThrough(".//shaders//slab_operation.vert", ".//shaders//pass_through.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
+    boundaryVelocity(".//shaders//slab_operation.vert", ".//shaders//boundary_velocity.frag", {"", "", "quantityTexture"}),
+    boundaryLS(".//shaders//slab_operation.vert", ".//shaders//boundary_levelset.frag", {"", "", "quantityTexture"}),
+    boundaryPressure(".//shaders//slab_operation.vert", ".//shaders//boundary_pressure.frag", {"", "", "quantityTexture"}),
+    pressurePoisson(".//shaders//slab_operation.vert", ".//shaders//pressure_poisson.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
+    divergence(".//shaders//slab_operation.vert", ".//shaders//divergence.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
+    removeDivergence(".//shaders//slab_operation.vert", ".//shaders//remove_divergence.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
+    clearSlabs(".//shaders//slab_operation.vert", ".//shaders//clear_slabs.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"})
 {   
     setUpFluidRenderShaders();
     setUpFluidSimulationTextures();
@@ -574,7 +574,7 @@ void FluidRenderer::RenderTarget::releaseBuffers(){
     glDeleteFramebuffers(1, &FBO);
 }
 
-FluidRenderer::SlabOperation::SlabOperation(const std::string vertexShaderPath, const std::string fragmentShaderPath) :
+FluidRenderer::SlabOperation::SlabOperation(const std::string vertexShaderPath, const std::string fragmentShaderPath, std::vector<std::string> textureNames) :
     shader(vertexShaderPath, fragmentShaderPath)
 {   
     shader.useProgram();
@@ -591,7 +591,11 @@ FluidRenderer::SlabOperation::SlabOperation(const std::string vertexShaderPath, 
     quadUniforms.projTrans = shader.getUniformLocation("projection");
     glUniformMatrix4fv(quadUniforms.projTrans, 1, GL_FALSE, glm::value_ptr(projection));
     
-    
+    for (int i = 0 ; i < textureNames.size() ; ++i){
+        if (textureNames[i].length() != 0){
+            glUniform1i(shader.getUniformLocation(textureNames[i]), i);
+        }
+    }
 };
 
 // ***Issue: ideally these would be a member of slab op, but then they don't have access to quad!
