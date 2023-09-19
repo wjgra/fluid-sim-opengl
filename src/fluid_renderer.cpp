@@ -9,7 +9,7 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     raycastingPosShader(".//shaders//raycasting_pos.vert", ".//shaders//raycasting_pos.frag"),
     renderFluidShader(".//shaders//fluid.vert", ".//shaders//fluid.frag"),
     // Slab operations
-    advection(".//shaders//slab_operation.vert", ".//shaders//advect_velocity.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
+    advection(".//shaders//slab_operation.vert", ".//shaders//advect_quantity.frag", {"velocityTexture", "", "quantityTexture"}),
     diffusion(".//shaders//slab_operation.vert", ".//shaders//diffuse_quantity.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
     forceApplication(".//shaders//slab_operation.vert", ".//shaders//apply_force_to_quantity.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
     passThrough(".//shaders//slab_operation.vert", ".//shaders//pass_through.frag", {"velocityTexture", "levelSetTexture", "quantityTexture"}),
@@ -604,7 +604,7 @@ void FluidRenderer::applySlabOp(SlabOperation slabOp, SQ quantity, unsigned int 
     glUniform1f(slabOp.uniformTimeStep, (float)frameTime);
     for (int zSlice = layerFrom; zSlice < layerTo; ++zSlice){
         glBindFramebuffer(GL_FRAMEBUFFER, quantity.slabFBOs[zSlice]);
-        glUniform1i(slabOp.uniformZSlice, zSlice);
+        glUniform1f(slabOp.uniformZSlice, (float)zSlice);
         quad.draw(GL_TRIANGLES);
     }
 }

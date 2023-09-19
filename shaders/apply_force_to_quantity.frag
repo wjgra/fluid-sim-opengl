@@ -10,7 +10,7 @@ uniform sampler3D levelSetTexture; // treat as below - rename later
 uniform sampler3D quantityTexture; // might be either of the above!
 
 uniform float timeStep; // in microseconds
-uniform int zSlice;
+uniform float zSlice;
 
 uniform float gravityDirection = 0.0f; // Deviation from vertical (rotate around z-axis)
 

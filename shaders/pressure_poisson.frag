@@ -10,7 +10,7 @@ uniform sampler3D levelSetTexture; // level set
 uniform sampler3D quantityTexture; // div(velocity)
 
 uniform float timeStep; // in microseconds
-uniform int zSlice;
+uniform float zSlice;
 
 const float step = 1.0f/gridSize;
 

@@ -7,7 +7,7 @@ const int gridSize = 32;
 
 uniform sampler3D quantityTexture;
 
-uniform int zSlice;
+uniform float zSlice;
 
 const float step = 1.0f/gridSize;
 
