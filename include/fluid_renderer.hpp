@@ -111,7 +111,7 @@ ShaderProgram backgroundPlaneShader, raycastingPosShader, renderFluidShader;
     struct SQ{
         GLuint texture;
         GLuint slabFBOs[gridSize];
-        void generateTexture(std::vector<float> data);
+        void generateTexture(std::vector<float> data, bool scalarQuantity);
         void generateFBOs();
     } velocityCurrent, velocityNext, levelSetCurrent, levelSetNext, pressureCurrent, pressureNext, tempQuantity;
 

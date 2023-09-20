@@ -109,14 +109,13 @@ void FluidRenderer::setUpFluidSimulationTextures(){
     // Level set - initial surface at z = 0.5f
     // Takes the value of zero on air-water and box-water interfaces
     // ***Issue: Should be signed distance field, but using 0.5f outside due to pressure issue
-    std::vector<float> tempSetData(4*gridSize*gridSize*gridSize, 0.0f);
+    std::vector<float> tempSetData(gridSize*gridSize*gridSize, 0.0f);
     
     for (int k = 0; k < gridSize; ++k){
        for (int j = 0 ; j < gridSize; ++j){
             for (int i = 0; i < gridSize; ++i){
-                //location of (i,j,k) in texture data is 4 * gridSize * gridSize * k + 4 * gridSize * j + 4 * i
-                int index = 4 * gridSize * gridSize * k + 4 * gridSize * j + 4 * i;
-                // index = 4 * gridSize * gridSize * k + 4 * gridSize * (gridSize - 1 - j) + 4 * i; // flip fluid in y direction
+                //location of (i,j,k) in texture data
+                int index = gridSize * gridSize * k + gridSize * j + i;
                 // bottom layer is just outside fluid
                 if ( j == 0){
                     tempSetData[index] = 0.5f;// Must be 0.5 so = 0 on bdry
@@ -148,26 +147,28 @@ void FluidRenderer::setUpFluidSimulationTextures(){
         }
     }
     
-    levelSetCurrent.generateTexture(tempSetData);
-    levelSetNext.generateTexture(tempSetData);
+    levelSetCurrent.generateTexture(tempSetData, true);
+    levelSetNext.generateTexture(tempSetData, true);
 
     // Velocity - initially zero everywhere
     std::vector<float> tempVelocityData(4*gridSize*gridSize*gridSize, 0.0f);
 
-    velocityCurrent.generateTexture(tempVelocityData);
-    velocityNext.generateTexture(tempVelocityData);
+    velocityCurrent.generateTexture(tempVelocityData, false);
+    velocityNext.generateTexture(tempVelocityData, false);
     
     // Pressure - initially zero 
-    pressureCurrent.generateTexture(tempVelocityData);
-    pressureNext.generateTexture(tempVelocityData);
+    std::vector<float> tempPressureData(4 * /*remove 4 */gridSize*gridSize*gridSize, 0.0f);
+
+    pressureCurrent.generateTexture(tempPressureData, false); // convert to scalar once tempQuantity separated for vel/pressure
+    pressureNext.generateTexture(tempPressureData, false);
 
     // Temporary set of buffers for use in Jacobi iteration
-    tempQuantity.generateTexture(tempVelocityData);
+    tempQuantity.generateTexture(tempPressureData, false);
     
 };
 
 // Generates a new 3D RGBA floating-point texture with the given input as the initial data
-void FluidRenderer::SQ::generateTexture(std::vector<float> data){
+void FluidRenderer::SQ::generateTexture(std::vector<float> data, bool scalarQuantity = false){
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_3D, texture);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -175,8 +176,12 @@ void FluidRenderer::SQ::generateTexture(std::vector<float> data){
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, gridSize, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, data.data());
+    if (!scalarQuantity){
+        glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, gridSize, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, data.data());
+    }
+    else{
+        glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, data.data());
+    }
     glBindTexture(GL_TEXTURE_3D, 0);
 }
 
