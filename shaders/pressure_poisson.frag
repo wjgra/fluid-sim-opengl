@@ -24,7 +24,7 @@ float solvePoisson(){
     float quantityPosZ = texture(pressureTexture, lookUpCoords + vec3(0.0f, 0.0f, step)).x;
     float quantityNegZ = texture(pressureTexture, lookUpCoords + vec3(0.0f, 0.0f, -step)).x;
 
-    return (quantityNegX + quantityPosX + quantityNegY + quantityPosY + quantityNegZ + quantityPosZ - (step * step) * texture(divergenceTexture, lookUpCoords))/6.0f;
+    return (quantityNegX + quantityPosX + quantityNegY + quantityPosY + quantityNegZ + quantityPosZ - (step * step) * texture(divergenceTexture, lookUpCoords).x)/6.0f;
 }
 
 void main(){

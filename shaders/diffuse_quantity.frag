@@ -13,7 +13,7 @@ const float step = 1.0f/gridSize;
 
 vec3 lookUpCoords = vec3(TextureCoord, zSlice * step + 0.5f * step);
 
-const float viscosity = 1e-4;//1e-3; // Currently like honey! Needs to be lower for water
+const float viscosity = 1e-5;//1e-3; // Currently like honey! Needs to be lower for water
 
 vec4 diffuseQuantity(){
     // Perform one jacobi iteration

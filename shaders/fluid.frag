@@ -34,18 +34,11 @@ vec4 getFloorColor(vec3 floorPos){
 
 void main()
 {
-
-
     //FragColor = texture(frontTexture, TextureCoord);
 
     vec4 frontPos = texture(frontTexture, TextureCoord);
     vec4 backPos = texture(backTexture, TextureCoord);
-    vec3 dir = (texture(backTexture, TextureCoord) - frontPos).xyz;
-
-    //if (frontPos.a <= 0.0f)
-       //discard;
-    // Currently this reduces performance
-
+    vec3 dir = (backPos - frontPos).xyz;
     
     // Draw zero planes - can use this technique to draw 'box' if desired
     if (frontPos.x < 0.01f && frontPos.x > 0.0f){
@@ -72,14 +65,11 @@ void main()
     vec4 finalColour = vec4(0.0f, 0.0f, 0.0f, 0.0f);
     float step = 1.0f/(gridSize * 2.0f); // Half voxel size
 
-    //marchingPoint += dir * step;
-
     bool reachedSurface = false;
     vec3 surfaceNormal;
     float dX = step;
 
     vec3 surfacePoint;
-
     float marchingDistance;
 
     for (marchingDistance = 0.0f ; marchingDistance < len ; marchingDistance += step, marchingPoint += step * dir){
@@ -89,11 +79,18 @@ void main()
         float sample = float(texture(levelSetTexture, marchingPoint).x);
 
         if (sample < 0.0f){
-            
             if (!reachedSurface){
-                //FragColor = vec4(-sample / 1.0f, 0.0f, 0.0f, 1.0f); return;
+                // FragColor = vec4(-1.0f/sample, 0.0f, 0.0f, 1.0f); return;
                 reachedSurface  = true;
                 surfacePoint = marchingPoint;
+                
+                // Is it a thin portion...
+                /* if (texture(levelSetTexture, marchingPoint + step * dir).x >=0){
+                    reachedSurface = false;
+                    continue;
+                } */
+
+
                 if (false && marchingPoint.z >= 1.0f-step){
                     surfaceNormal = vec3(0.0f, 0.0f, 1.0f);
                 }
@@ -123,33 +120,8 @@ void main()
         
     }
 
-    // Go back half a step to refine exit point - consider doing this for all entry/exit points
-    /*marchingDistance -= 0.5f * step; marchingPoint -= 0.5f * step * dir;
-    float sample = float(texture(levelSetTexture, marchingPoint).x);
-    if (sample < 0.0f){
-        reachedSurface = true;
-        finalColour.xyz += 0.5f * sampleColour.xyz * sampleColour.w * (1.0f - finalColour.w);
-        finalColour.w += 0.5f * sampleColour.w * (1.0f - finalColour.w);
+    // Add hitpoint refinement
 
-        // Central differences
-        float levelSetCentre = sample;
-        float levelSetPosX = float(texture(levelSetTexture, marchingPoint + vec3(dX, 0.0f, 0.0f)).x);
-        float levelSetNegX = float(texture(levelSetTexture, marchingPoint + vec3(-dX, 0.0f, 0.0f)).x);
-        float levelSetPosY = float(texture(levelSetTexture, marchingPoint + vec3(0.0f, dX, 0.0f)).x);
-        float levelSetNegY = float(texture(levelSetTexture, marchingPoint + vec3(0.0f, -dX, 0.0f)).x);
-        float levelSetPosZ = float(texture(levelSetTexture, marchingPoint + vec3(0.0f, 0.0f, dX)).x);
-        float levelSetNegZ = float(texture(levelSetTexture, marchingPoint + vec3(0.0f, 0.0f, -dX)));
-
-        surfaceNormal = vec3(levelSetPosX - levelSetNegX, levelSetPosY - levelSetNegY, levelSetPosZ - levelSetNegZ) / (2 * dX);
-        surfaceNormal = normalize(surfaceNormal);
-    }*/
-
-
-    if (reachedSurface){
-        //finalColour.w += 1.0f;//0.1f;
-    }
-
-    // Normals need to be transformed... ?? or do they??
     vec3 lightColour = vec3(1.0f, 1.0f, 1.0f);
     float ambientStrength = 0.5f;
     vec3 lightDir = normalize(vec3(1.0f, 2.0f, 1.0f));
@@ -157,15 +129,13 @@ void main()
     vec3 diffuseColour = max(dot(surfaceNormal, lightDir), 0.0f) * lightColour * 2.0f;
     vec3 ambientColour = lightColour * ambientStrength;
 
-    vec3 refDir = refract(dir,surfaceNormal, 1/1.33);
-    //float lambda = 1.5f * gridSize * (surfacePoint.y*10.0f - 0.5f)/refDir.y;
-
+    // FragColor = vec4(diffuseColour + ambientColour, 1.0f) * finalColour;
     
-
-    //vec3 floorPos = 1.5f * gridSize * surfacePoint*10.0f + lambda * refDir;
     
-    vec4 reflectColour;// = getFloorColor(floorPos);
-    if (refDir.y >= 0.0f){//} || dot(vec3(dir.x, 0.0f, dir.z), refDir) >= 0.0f){
+    vec3 refDir = reflect(dir,surfaceNormal);
+    
+    vec4 reflectColour;
+    if (refDir.y >= 0.0f){
         // Sky reflection
         reflectColour = skyColour;//vec4(0.0f, 0.0f, 0.0f, 1.0f);
     }
@@ -173,13 +143,32 @@ void main()
         // Plane reflection
         float lambda = - surfacePoint.y * cubeScale / refDir.y;
         vec3 floorPos = (surfacePoint - 0.5f) * cubeScale + lambda * refDir; 
-
         reflectColour = getFloorColor(floorPos / ( planeSize));// = vec4(0.0f, 0.0f, 1.0f, 1.0f);
     }
     reflectColour.w = float(reachedSurface);
 
-    FragColor =  mix(vec4( diffuseColour + ambientColour, 1.0f )* finalColour, reflectColour, 0.5f);
+    // REFRACTION
+    vec3 refractDir = refract(dir,surfaceNormal, 1/1.33); 
+
+    vec4 refractColour;
+    if (refractDir.y >= 0.0f){
+        refractColour = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    }
+    else{
+        // Plane reflection
+        float lambda = - surfacePoint.y * cubeScale / refractDir.y;
+        vec3 floorPos = (surfacePoint - 0.5f) * cubeScale + lambda * refractDir; 
+        refractColour = getFloorColor(floorPos / ( planeSize));// = vec4(0.0f, 0.0f, 1.0f, 1.0f);
+    }
+    refractColour.w = float(reachedSurface);
+
+
+
+    FragColor =  mix(vec4( diffuseColour + ambientColour, 1.0f )* finalColour, refractColour, 0.5f);
     FragColor.a = reachedSurface ? 1.0f : 0.0f;
+
+
+
 
     //FragColor = vec4 ( abs(surfaceNormal), 1.0f);
 

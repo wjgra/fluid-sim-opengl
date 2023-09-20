@@ -99,8 +99,9 @@ void ShaderProgram::useProgram(){
 // Retrieves the location of the named uniform variable
 GLint ShaderProgram::getUniformLocation(const std::string &name) const{
     GLint uniformLocation = glGetUniformLocation(programID, name.c_str());
-    if (uniformLocation < 0)
-        throw std::string("Failed to get location of uniform \'" + name + "\'\n");
+    if (uniformLocation < 0){
+        //throw std::string("Failed to get location of uniform \'" + name + "\'\n");
+    }
     else
         return uniformLocation;
 }

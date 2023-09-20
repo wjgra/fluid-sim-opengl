@@ -566,3 +566,5 @@ void FluidRenderer::applyOuterSlabOp(outerSlabOp slabOp, SQ quantity, unsigned i
     //glScissor(0,0,1,gridSize);
     applySlabOp(slabOp, quantity, frameTime, 0, gridSize);
 }
+
+// Using scissor and six slab op commands to draw bdry was actually slower!
