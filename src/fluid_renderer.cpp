@@ -14,9 +14,9 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     forceApplication(".//shaders//slab_operation.vert", ".//shaders//apply_force_to_velocity.frag", {"velocityTexture", "levelSetTexture"}),
     passThrough(".//shaders//slab_operation.vert", ".//shaders//pass_through.frag", {"quantityTexture"}),
 
-    boundaryVelocity(".//shaders//slab_operation.vert", ".//shaders//boundary_velocity.frag", {"", "", "quantityTexture"}),
-    boundaryLS(".//shaders//slab_operation.vert", ".//shaders//boundary_levelset.frag", {"", "", "quantityTexture"}),
-    boundaryPressure(".//shaders//slab_operation.vert", ".//shaders//boundary_pressure.frag", {"", "", "quantityTexture"}),
+    boundaryVelocity(".//shaders//slab_operation.vert", ".//shaders//boundary_velocity.frag", {"velocityTexture"}),
+    boundaryLS(".//shaders//slab_operation.vert", ".//shaders//boundary_levelset.frag", {"levelSetTexture"}),
+    boundaryPressure(".//shaders//slab_operation.vert", ".//shaders//boundary_pressure.frag", {"pressureTexture"}),
     
     pressurePoisson(".//shaders//slab_operation.vert", ".//shaders//pressure_poisson.frag", {"pressureTexture", "levelSetTexture", "divergenceTexture"}),
     divergence(".//shaders//slab_operation.vert", ".//shaders//divergence.frag", {"velocityTexture"}),
@@ -272,32 +272,16 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     // Velocity BC
     glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-
-    glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture); // bind advected quantity to pos = 2
-    
     applyOuterSlabOp(boundaryVelocity, velocityNext, frameTime);
     std::swap(velocityCurrent, velocityNext);
 
     // Advect Velocity
     glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-
     glActiveTexture(GL_TEXTURE0 + 1);
     glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
     applyInnerSlabOp(advection, velocityNext, frameTime);
 
-    //Level set BC
-
-    glActiveTexture(GL_TEXTURE0 + 1);
-    glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
-    glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
-    
-    applyOuterSlabOp(boundaryLS, levelSetNext, frameTime);
-    std::swap(levelSetCurrent, levelSetNext);
-
-     
     // Advect Level Set using old velocity (but with corrected BC)
     glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
     applyInnerSlabOp(advection, levelSetNext, frameTime);
@@ -331,9 +315,8 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     // *Remove divergence from velocity*
 
     // Apply velocity BC (must be done to ensure correct divergence at bdries)
-    glActiveTexture(GL_TEXTURE0 + 2);
+    glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-    
     applyOuterSlabOp(boundaryVelocity, velocityNext, frameTime);
     std::swap(velocityCurrent, velocityNext);
 
@@ -354,7 +337,7 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     // Solve Poisson eqn 
     for (int i = 0; i < numJacobiIterationsPressure; ++i){
         // Pressure BC
-        glActiveTexture(GL_TEXTURE0 + 2);
+        glActiveTexture(GL_TEXTURE0 + 0);
         glBindTexture(GL_TEXTURE_3D, pressureCurrent.texture);
         applyOuterSlabOp(boundaryPressure, pressureNext, frameTime);
         std::swap(pressureCurrent, pressureNext);
@@ -376,7 +359,13 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     applyInnerSlabOp(removeDivergence, velocityNext, frameTime);
     std::swap(velocityCurrent, velocityNext);
 
-    std::swap(levelSetCurrent, levelSetNext); // consider moving up to ***
+    //Level set BC
+    std::swap(levelSetCurrent, levelSetNext);
+    glActiveTexture(GL_TEXTURE0 + 0);
+    glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
+    applyOuterSlabOp(boundaryLS, levelSetNext, frameTime);
+    std::swap(levelSetCurrent, levelSetNext);
+
 
     // Tidy up
     glDisable(GL_SCISSOR_TEST);

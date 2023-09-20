@@ -5,19 +5,19 @@ in vec2 TextureCoord;
 
 const int gridSize = 32;
 
-uniform sampler3D quantityTexture;
+uniform sampler3D pressureTexture;
 
 uniform float zSlice;
 
 const float step = 1.0f/gridSize;
 
 vec4 sampleQuantity(vec3 coordOffset){
-    return texture(quantityTexture, coordOffset + vec3(TextureCoord, float(zSlice + 0.5f) * step));
+    return texture(pressureTexture, coordOffset + vec3(TextureCoord, float(zSlice + 0.5f) * step));
 }
 void main(){
     //discard;
     //FragColor = vec4(0.0f, 0.0f, 0.0f, 0.0f);return;
-    //FragColor = texture(quantityTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step));
+    //FragColor = texture(pressureTexture, vec3(TextureCoord, float(zSlice + 0.5f) * step));
 
 
     vec3 offset = vec3(0.0f, 0.0f, 0.0f);
