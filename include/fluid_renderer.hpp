@@ -54,8 +54,8 @@ private:
     bool gravityRotatingNeg = false;
     bool resetGravity = false;
 
-    int const numJacobiIterations = 25;//50;
-    int const numJacobiIterationsPressure = 75;
+    int const numJacobiIterations = 25;//25;
+    int const numJacobiIterationsPressure = 50;//50
 
     // Timing variables
     int initTime = 0, bgTime = 0, intTime = 0, renTime = 0;
@@ -113,7 +113,7 @@ ShaderProgram backgroundPlaneShader, raycastingPosShader, renderFluidShader;
         GLuint slabFBOs[gridSize];
         void generateTexture(std::vector<float> data, bool scalarQuantity);
         void generateFBOs();
-    } velocityCurrent, velocityNext, levelSetCurrent, levelSetNext, pressureCurrent, pressureNext, tempQuantity;
+    } velocityCurrent, velocityNext, levelSetCurrent, levelSetNext, pressureCurrent, pressureNext, tempVectorQuantity, tempScalarQuantity;
 
     /// OLD
  /*    struct SimulatedQuantity{ 

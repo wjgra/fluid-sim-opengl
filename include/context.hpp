@@ -30,7 +30,7 @@ public:
         return *this;
     }
     SDL_GLContext getContext();
-    bool const useVsync = true;
+    bool const useVsync = false;
     // Dimensions of OpenGL viewport
     unsigned int const viewportWidth = 640;
     unsigned int const viewportHeight = 480;

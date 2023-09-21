@@ -157,17 +157,18 @@ void FluidRenderer::setUpFluidSimulationTextures(){
     velocityNext.generateTexture(tempVelocityData, false);
     
     // Pressure - initially zero 
-    std::vector<float> tempPressureData(4 * /*remove 4 */gridSize*gridSize*gridSize, 0.0f);
+    std::vector<float> tempPressureData(gridSize*gridSize*gridSize, 0.0f);
 
-    pressureCurrent.generateTexture(tempPressureData, false); // convert to scalar once tempQuantity separated for vel/pressure
-    pressureNext.generateTexture(tempPressureData, false);
+    pressureCurrent.generateTexture(tempPressureData, true); // convert to scalar once tempVectorQuantity separated for vel/pressure
+    pressureNext.generateTexture(tempPressureData, true);
 
     // Temporary set of buffers for use in Jacobi iteration
-    tempQuantity.generateTexture(tempPressureData, false);
+    tempVectorQuantity.generateTexture(tempVelocityData, false);
+    tempScalarQuantity.generateTexture(tempPressureData, true);
     
 };
 
-// Generates a new 3D RGBA floating-point texture with the given input as the initial data
+// Generates a new 3D floating-point texture with the given input as the initial data
 void FluidRenderer::SQ::generateTexture(std::vector<float> data, bool scalarQuantity = false){
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_3D, texture);
@@ -177,7 +178,7 @@ void FluidRenderer::SQ::generateTexture(std::vector<float> data, bool scalarQuan
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     if (!scalarQuantity){
-        glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, gridSize, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, data.data());
+        glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB32F, gridSize, gridSize, gridSize, 0, GL_RGB, GL_FLOAT, data.data());
     }
     else{
         glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, data.data());
@@ -193,7 +194,8 @@ void FluidRenderer::setUpFluidSimulationFBOs(){
     velocityNext.generateFBOs();
     pressureCurrent.generateFBOs();
     pressureNext.generateFBOs();
-    tempQuantity.generateFBOs();
+    tempVectorQuantity.generateFBOs();
+    tempScalarQuantity.generateFBOs();
 }
 
 // Generates an array of FBOs for using slab operations to render into the simulated quantity texture
@@ -212,7 +214,7 @@ void FluidRenderer::frame(unsigned int frameTime){
     auto t0 = std::chrono::high_resolution_clock::now();
     // ***Refactor: Update camera
     horizRot += frameTime * horizRotSpeed;
-    camera.pos = glm::vec3(glm::rotate(glm::mat4(1.0f), glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0.0f, 2.0f, 3.0f, 1.0f));
+    camera.pos = glm::vec3(glm::rotate(glm::mat4(1.0f), glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0.0f, 1.5f, 3.0f, 1.0f));
     camera.updateMatrix();
     
     glDisable(GL_CULL_FACE); // is this needed????
@@ -299,7 +301,7 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
 
     // pass through current velocity to temp velocity, which is used as 0th iteration
-    applyInnerSlabOp(passThrough, tempQuantity, frameTime);
+    applyInnerSlabOp(passThrough, tempVectorQuantity, frameTime);
     
     // Re-bind velocity as quantity to be altered in pos = 2
     glActiveTexture(GL_TEXTURE0 + 2);
@@ -308,14 +310,18 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     // Diffuse velocity
     glActiveTexture(GL_TEXTURE0 + 0);
     for (int i = 0; i < numJacobiIterations; ++i){
-        glBindTexture(GL_TEXTURE_3D, tempQuantity.texture);
+        glBindTexture(GL_TEXTURE_3D, tempVectorQuantity.texture);
         // Render into next velocity (kth iterate is in temp, k+1th in next)
         applyInnerSlabOp(diffusion, velocityNext, frameTime);
         // swap next and temp velocity, then iterate 
-        std::swap(velocityNext, tempQuantity);
+        std::swap(velocityNext, tempVectorQuantity);
+        // Velocity BC - do we need to apply this every iteration?
+        glBindTexture(GL_TEXTURE_3D, tempVectorQuantity.texture);
+        applyOuterSlabOp(boundaryVelocity, velocityNext, frameTime);
+        std::swap(velocityNext, tempVectorQuantity);
     }
         
-    std::swap(velocityCurrent, tempQuantity); // Swap final iteration into current velocity
+    std::swap(velocityCurrent, tempVectorQuantity); // Swap final iteration into current velocity
 
     // *Remove divergence from velocity*
 
@@ -328,7 +334,7 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     // Compute div of currentVelocity (store in textureVelocityTemp)
     glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-    applyInnerSlabOp(divergence, tempQuantity, frameTime);
+    applyInnerSlabOp(divergence, tempScalarQuantity, frameTime);
 
     // Clear pressure texture
     /*applyOuterSlabOperation(clearSlabs, pressure.textureNext);
@@ -351,7 +357,7 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
         glActiveTexture(GL_TEXTURE0 + 0);
         glBindTexture(GL_TEXTURE_3D, pressureCurrent.texture); // pressure
          glActiveTexture(GL_TEXTURE0 + 2);
-        glBindTexture(GL_TEXTURE_3D, tempQuantity.texture); // div(velocity)
+        glBindTexture(GL_TEXTURE_3D, tempScalarQuantity.texture); // div(velocity)
         applyInnerSlabOp(pressurePoisson, pressureNext, frameTime);
         std::swap(pressureCurrent, pressureNext);
     }

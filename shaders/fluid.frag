@@ -55,6 +55,12 @@ void main()
     }
     // End zero planes
     
+    if( frontPos.y < 0.505f && frontPos.y > 0.495f){ // Halfway line
+        FragColor = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+        return;
+    }
+
+    
 
     float len = length(dir);
     dir /= len;
@@ -78,7 +84,7 @@ void main()
         
         float sample = float(texture(levelSetTexture, marchingPoint).x);
 
-        if (sample < 0.0f){
+        if (sample < 0){
             if (!reachedSurface){
                 // FragColor = vec4(-1.0f/sample, 0.0f, 0.0f, 1.0f); return;
                 reachedSurface  = true;
@@ -164,7 +170,7 @@ void main()
 
 
 
-    FragColor =  mix(vec4( diffuseColour + ambientColour, 1.0f )* finalColour, refractColour, 0.5f);
+    FragColor =  mix(vec4( diffuseColour + ambientColour, 1.0f )* finalColour, refractColour/*mix(refractColour, reflectColour, 0.7f)*/, 1.0f);
     FragColor.a = reachedSurface ? 1.0f : 0.0f;
 
 
@@ -175,3 +181,6 @@ void main()
     //float temp = texture(levelSetTexture, vec3(0.029f, 0.4f, 0.1f)).x;
     //FragColor = temp > 0 ? vec4(1.0f, 0.0f, 0.0f, 0.5f) : vec4(0.0f, 1.0f, 0.0f, 0.5f);
 }
+
+
+// To do: multiple refraction

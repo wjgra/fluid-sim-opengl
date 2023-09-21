@@ -52,6 +52,3 @@ int main(){
 
     return EXIT_SUCCESS;
 }
-
-// To do:
-// - Particle effects

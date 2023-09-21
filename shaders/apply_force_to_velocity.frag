@@ -15,7 +15,7 @@ const float step = 1.0f/gridSize;
 vec3 lookUpCoords = vec3(TextureCoord, zSlice * step + 0.5f * step);
 
 uniform vec3 gravityDirection = vec3(0.0, -1.0f, 0.0f);
-const float gravityStrength = 1e-13;
+const float gravityStrength = 4e-13;
 
 vec4 applyGravity(){
     vec4 vel = texture(velocityTexture, lookUpCoords);
