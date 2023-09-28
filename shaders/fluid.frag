@@ -102,7 +102,7 @@ void main()
 
     vec3 tempDir = dir;
 
-    const float refIndex = 1.0f;
+    const float refIndex = 1.33;
 
     for (marchingDistance = 0.0f ; marchingDistance < 2.0f * len ; marchingDistance += step, marchingPoint += step * tempDir){
         /* if (finalColour.w > 0.99f)
@@ -163,7 +163,16 @@ void main()
 
     // REFRACTION
     //vec3 refractDir = refract(dir,surfaceNormal, 1/1.33); 
-    refractDir = refract(refractDir, exitNormal, refIndex);
+    vec3 tempRefractDir = refract(refractDir, -exitNormal, refIndex);
+    //if (exited && refractDir.x == 0) {FragColor.r = 1.0f; return;};
+
+    if (tempRefractDir == vec3(0.0f)){//TIR
+        refractDir = reflect(refractDir, -exitNormal);
+    }
+    else{
+        refractDir = tempRefractDir;
+    }
+
     vec4 refractColour;
     if (refractDir.y >= 0.0f){
         refractColour = vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -178,12 +187,12 @@ void main()
 
 
 
-    FragColor =  mix(vec4( diffuseColour + ambientColour, 1.0f )* finalColour, mix(refractColour, reflectColour, 0.0f), 1.0f);
+    FragColor =  mix(vec4( diffuseColour + ambientColour, 1.0f )* finalColour, mix(refractColour, reflectColour, 0.3f), 1.0f);
 
     //FragColor.xyz = abs(surfaceNormal);
     FragColor.a = reachedSurface ? 1.0f : 0.0f;
 
-    //FragColor.r = exitPoint.y < 0.1 ? 1.0f : 0.0f;
+    //FragColor.r = refractDir.y ==0 ? 1.0f : 0.0f;
 
     //FragColor = vec4 ( abs(surfaceNormal), 1.0f);
 
