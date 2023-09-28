@@ -116,7 +116,10 @@ void FluidRenderer::setUpFluidSimulationTextures(){
             for (int i = 0; i < gridSize; ++i){
                 //location of (i,j,k) in texture data
                 int index = gridSize * gridSize * k + gridSize * j + i;
-                // bottom layer is just outside fluid
+                
+                tempSetData[index] = j - gridSize/2;
+                
+                /* // bottom layer is just outside fluid
                 if ( j == 0){
                     tempSetData[index] = 0.5f;// Must be 0.5 so = 0 on bdry
                 }
@@ -142,7 +145,7 @@ void FluidRenderer::setUpFluidSimulationTextures(){
                         tempDist += 0.5f;// Bdry condition correction
                         tempSetData[index] = -tempDist;
                     }
-                }
+                } */
             }
         }
     }

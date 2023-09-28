@@ -170,7 +170,9 @@ void main()
 
 
 
-    FragColor =  mix(vec4( diffuseColour + ambientColour, 1.0f )* finalColour, refractColour/*mix(refractColour, reflectColour, 0.7f)*/, 1.0f);
+    FragColor =  mix(vec4( diffuseColour + ambientColour, 1.0f )* finalColour, mix(refractColour, reflectColour, 0.0f), 1.0f);
+
+    //FragColor.xyz = abs(surfaceNormal);
     FragColor.a = reachedSurface ? 1.0f : 0.0f;
 
 
