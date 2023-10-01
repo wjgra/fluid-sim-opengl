@@ -96,10 +96,42 @@ void FluidRenderer::setUpFluidRenderShaders(){
     uniformLevelSetFluid = renderFluidShader.getUniformLocation("levelSetTexture");
     glUniform1i(uniformLevelSetFluid, 2);
 
+    setUpSplines(); // For use in tri-cubic interpolation of normals
+    uniformSplineTexture = renderFluidShader.getUniformLocation("splineTexture");
+    glUniform1i(uniformSplineTexture, 3);
+
+    setUpSkybox();
+    uniformSkyBoxTexture = renderFluidShader.getUniformLocation("skyBoxTexture");
+    glUniform1i(uniformSkyBoxTexture, 4);
+
     forceApplication.shader.useProgram();
     uniformGravityDirection = forceApplication.shader.getUniformLocation("gravityDirection");
     glUniform1f(uniformGravityDirection, gravityDirection);
 
+}
+
+// Populate a 1D texture with cubic interpolation coefficients/offsets
+// RGBA: (g0, g1, h0, h1), where f(x) = g0 * f(i - h0) + g1 * f(i + h1), where i = floor(x)
+void FluidRenderer::setUpSplines(){
+    auto w0 = [](float a){return (-a * a * a + 3 * a * a - 3 * a + 1) / 6.0f;};
+    auto w1 = [](float a){return (3 * a * a * a - 6 * a * a + 4) / 6.0f;};
+    auto w2 = [](float a){return (-3 * a * a * a + 3 * a * a + 3 * a + 1) / 6.0f;};
+    auto w3 = [](float a){return (a * a * a / 6.0f);};
+    std::vector<float> splineData(4 * splineRes);
+    for (int i = 0 ; i < splineRes ; ++i){
+        float alpha = (i + 0.5f) / splineRes;
+        splineData[4 * i] = w0(alpha) + w1(alpha);
+        splineData[4 * i + 1] = w2(alpha) + w3(alpha); // Technically redundnant, but saves work for fragment shader
+        splineData[4 * i + 2] = 1 + alpha - w1(alpha) / (w0(alpha) + w1(alpha));
+        splineData[4 * i + 3] = 1 - alpha + w3(alpha) / (w2(alpha) + w3(alpha)); // Idem
+    }
+    glGenTextures(1, &splineTexture);
+    glBindTexture(GL_TEXTURE_1D, splineTexture);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA32F, splineRes, 0, GL_RGBA, GL_FLOAT, splineData.data());
+    glBindTexture(GL_TEXTURE_1D, 0);
 }
 
 // Generate 3D textures and set initial values for all simulated quantities
@@ -216,9 +248,11 @@ void FluidRenderer::SQ::generateFBOs(){
 void FluidRenderer::frame(unsigned int frameTime){
     auto t0 = std::chrono::high_resolution_clock::now();
     // ***Refactor: Update camera
-    horizRot += frameTime * horizRotSpeed;
-    camera.pos = glm::vec3(glm::rotate(glm::mat4(1.0f), glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0.0f, 1.5f, 3.0f, 1.0f));
-    camera.updateMatrix();
+    if (cameraRotating){
+        horizRot += frameTime * horizRotSpeed;
+        camera.pos = glm::vec3(glm::rotate(glm::mat4(1.0f), glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0.0f, 0 * 1.5f, 3.0f, 1.0f));
+        camera.updateMatrix();
+    }
     
     glDisable(GL_CULL_FACE); // is this needed????
 
@@ -424,6 +458,10 @@ void FluidRenderer::renderFluid(){
     glBindTexture(GL_TEXTURE_2D, backCube.texture.getLocation());
     glActiveTexture(GL_TEXTURE0 + 2);
     glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
+    glActiveTexture(GL_TEXTURE0 + 3);
+    glBindTexture(GL_TEXTURE_1D, splineTexture);
+    glActiveTexture(GL_TEXTURE0 + 4);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skyBoxTexture);
     quad.draw(GL_TRIANGLES);
 
     // Tidy up texture bindings
@@ -465,6 +503,9 @@ void FluidRenderer::handleEvents(SDL_Event const& event){
 
                 case SDL_SCANCODE_DOWN:
                     gravityRotatingNeg = false;
+                break;
+                case SDL_SCANCODE_SPACE:
+                    cameraRotating = !cameraRotating;
                 break;
                 default:
                 break;
@@ -582,3 +623,25 @@ void FluidRenderer::applyOuterSlabOp(outerSlabOp slabOp, SQ quantity, unsigned i
 }
 
 // Using scissor and six slab op commands to draw bdry was actually slower!
+
+void FluidRenderer::setUpSkybox(){
+    glGenTextures(1, &skyBoxTexture);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skyBoxTexture);
+    int w, h, components;
+    for (int i = 0 ; i < skyBoxPaths.size() ; ++i){
+        unsigned char * data = stbi_load(skyBoxPaths[i].c_str(), &w, &h, &components, 0);
+        if (data){
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+            stbi_image_free(data);
+        }
+        else{
+            stbi_image_free(data);
+            throw std::string("Failed to load cubemap texture at " + skyBoxPaths[i]);
+        }
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+}

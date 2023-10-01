@@ -12,7 +12,7 @@ uniform float zSlice;
 const int gridSize = 32;
 const float step = 1.0f/gridSize;
 
-vec3 lookUpCoords = vec3(TextureCoord, zSlice * step + 0.5f * step);
+vec3 lookUpCoords = vec3(TextureCoord, zSlice * step + 0.5f * step); // consider calculating in vertex shader
 
 uniform vec3 gravityDirection = vec3(0.0, -1.0f, 0.0f);
 const float gravityStrength = 4e-13;

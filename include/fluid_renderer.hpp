@@ -53,13 +53,22 @@ private:
     bool gravityRotatingPos = false;
     bool gravityRotatingNeg = false;
     bool resetGravity = false;
+    bool cameraRotating = true;
 
     int const numJacobiIterations = 25;//25;
-    int const numJacobiIterationsPressure = 50;//50
+    int const numJacobiIterationsPressure = 75;//50
 
     // Timing variables
     int initTime = 0, bgTime = 0, intTime = 0, renTime = 0;
     int frameNo = 0;
+
+    // Sky box
+    GLuint skyBoxTexture, uniformSkyBoxTexture;
+    std::vector<std::string> skyBoxPaths = {".//skybox//miramar_rt.tga", ".//skybox//miramar_lf.tga",
+                                            ".//skybox//miramar_up.tga", ".//skybox//miramar_dn.tga",
+                                            ".//skybox//miramar_ft.tga", ".//skybox//miramar_bk.tga"};
+    void setUpSkybox();
+
 
     // FOR RENDERING fluid
 
@@ -99,13 +108,16 @@ private:
         void releaseBuffers();
     } frontCube, backCube;
 
+    GLuint splineTexture, uniformSplineTexture; // move...
+    int const splineRes = 128;
+    void setUpSplines();
 
-GLuint uniformLevelSetFluid; // For renderFluidShader
-ShaderProgram backgroundPlaneShader, raycastingPosShader, renderFluidShader;
+    GLuint uniformLevelSetFluid; // For renderFluidShader
+    ShaderProgram backgroundPlaneShader, raycastingPosShader, renderFluidShader;
 
-///////////////////////////////////////////////////////////
-// FOR SIMULATING FLUID
-// -----------
+    ///////////////////////////////////////////////////////////
+    // FOR SIMULATING FLUID
+    // -----------
     
 
     struct SQ{
@@ -146,6 +158,7 @@ ShaderProgram backgroundPlaneShader, raycastingPosShader, renderFluidShader;
             };
     } boundaryVelocity, boundaryLS, boundaryPressure, clearSlabs;
 
+    // Issue: could make these member functions if we make quad static inline (does it need to be const? may have to convert to array)
     void applySlabOp(SlabOperation slabOp, SQ quantity, unsigned int frameTime, int layerFrom, int layerTo);
     void applyInnerSlabOp(innerSlabOp slabOp, SQ quantity, unsigned int frameTime);
     void applyOuterSlabOp(outerSlabOp slabOp, SQ quantity, unsigned int frameTime);
