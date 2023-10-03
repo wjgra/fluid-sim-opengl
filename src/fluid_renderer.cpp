@@ -57,7 +57,7 @@ void FluidRenderer::setUpFluidRenderShaders(){
     model = glm::mat4(1.0f);
     model = glm::scale(model, glm::vec3(planeSize, planeSize, planeSize));
     model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    model = glm::translate(model, glm::vec3(0.0f, 0.0f, -0.5f * scale / planeSize));
+    model = glm::translate(model, glm::vec3(0.0f, 0.0f, (-0.5f + 1.0f / gridSize) * scale / planeSize)); // Fluid is not in outer cells - translate to sit on plane surface
     glUniformMatrix4fv(backgroundPlaneUniforms.modelTrans, 1, GL_FALSE, glm::value_ptr(model));
 
     // Projection matrix
@@ -250,7 +250,7 @@ void FluidRenderer::frame(unsigned int frameTime){
     // ***Refactor: Update camera
     if (cameraRotating){
         horizRot += frameTime * horizRotSpeed;
-        camera.pos = glm::vec3(glm::rotate(glm::mat4(1.0f), glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0.0f, 0 * 1.5f, 3.0f, 1.0f));
+        camera.pos = glm::vec3(glm::rotate(glm::mat4(1.0f), glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0.0f, 1.5f, 3.0f, 1.0f));
         camera.updateMatrix();
     }
     
@@ -629,7 +629,9 @@ void FluidRenderer::setUpSkybox(){
     glBindTexture(GL_TEXTURE_CUBE_MAP, skyBoxTexture);
     int w, h, components;
     for (int i = 0 ; i < skyBoxPaths.size() ; ++i){
+        //stbi_set_flip_vertically_on_load(true); 
         unsigned char * data = stbi_load(skyBoxPaths[i].c_str(), &w, &h, &components, 0);
+        //stbi_set_flip_vertically_on_load(false); 
         if (data){
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
             stbi_image_free(data);

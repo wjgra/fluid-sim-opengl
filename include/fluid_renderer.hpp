@@ -56,7 +56,7 @@ private:
     bool cameraRotating = true;
 
     int const numJacobiIterations = 25;//25;
-    int const numJacobiIterationsPressure = 75;//50
+    int const numJacobiIterationsPressure = 50;//50
 
     // Timing variables
     int initTime = 0, bgTime = 0, intTime = 0, renTime = 0;
@@ -64,7 +64,7 @@ private:
 
     // Sky box
     GLuint skyBoxTexture, uniformSkyBoxTexture;
-    std::vector<std::string> skyBoxPaths = {".//skybox//miramar_rt.tga", ".//skybox//miramar_lf.tga",
+    std::vector<std::string> skyBoxPaths = {".//skybox//miramar_lf.tga", ".//skybox//miramar_rt.tga",
                                             ".//skybox//miramar_up.tga", ".//skybox//miramar_dn.tga",
                                             ".//skybox//miramar_ft.tga", ".//skybox//miramar_bk.tga"};
     void setUpSkybox();
