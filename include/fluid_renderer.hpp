@@ -108,7 +108,7 @@ private:
         void releaseBuffers();
     } frontCube, backCube;
 
-    GLuint splineTexture, uniformSplineTexture; // move...
+    GLuint splineTexture, uniformSplineTexture, splineDerivTexture, uniformSplineDerivTexture; // move...
     int const splineRes = 128;
     void setUpSplines();
 

@@ -99,10 +99,12 @@ void FluidRenderer::setUpFluidRenderShaders(){
     setUpSplines(); // For use in tri-cubic interpolation of normals
     uniformSplineTexture = renderFluidShader.getUniformLocation("splineTexture");
     glUniform1i(uniformSplineTexture, 3);
+    uniformSplineDerivTexture = renderFluidShader.getUniformLocation("splineDerivTexture");
+    glUniform1i(uniformSplineDerivTexture, 4);
 
     setUpSkybox();
     uniformSkyBoxTexture = renderFluidShader.getUniformLocation("skyBoxTexture");
-    glUniform1i(uniformSkyBoxTexture, 4);
+    glUniform1i(uniformSkyBoxTexture, 5);
 
     forceApplication.shader.useProgram();
     uniformGravityDirection = forceApplication.shader.getUniformLocation("gravityDirection");
@@ -113,20 +115,43 @@ void FluidRenderer::setUpFluidRenderShaders(){
 // Populate a 1D texture with cubic interpolation coefficients/offsets
 // RGBA: (g0, g1, h0, h1), where f(x) = g0 * f(i - h0) + g1 * f(i + h1), where i = floor(x)
 void FluidRenderer::setUpSplines(){
+    // For interpolating values
     auto w0 = [](float a){return (-a * a * a + 3 * a * a - 3 * a + 1) / 6.0f;};
     auto w1 = [](float a){return (3 * a * a * a - 6 * a * a + 4) / 6.0f;};
     auto w2 = [](float a){return (-3 * a * a * a + 3 * a * a + 3 * a + 1) / 6.0f;};
-    auto w3 = [](float a){return (a * a * a / 6.0f);};
+    auto w3 = [](float a){return (a * a * a / 6.0f);}; 
+
     std::vector<float> splineData(4 * splineRes);
     for (int i = 0 ; i < splineRes ; ++i){
         float alpha = (i + 0.5f) / splineRes;
         splineData[4 * i] = w0(alpha) + w1(alpha);
-        splineData[4 * i + 1] = w2(alpha) + w3(alpha); // Technically redundnant, but saves work for fragment shader
-        splineData[4 * i + 2] = 1 + alpha - w1(alpha) / (w0(alpha) + w1(alpha));
-        splineData[4 * i + 3] = 1 - alpha + w3(alpha) / (w2(alpha) + w3(alpha)); // Idem
+        splineData[4 * i + 1] = w2(alpha) + w3(alpha); // Technically redundnant as g0 + g1 = 1
+        splineData[4 * i + 2] = -(1 + alpha - w1(alpha) / (w0(alpha) + w1(alpha))); // Negative h0 makes fragment shader simpler
+        splineData[4 * i + 3] = 1 - alpha + w3(alpha) / (w2(alpha) + w3(alpha));
     }
     glGenTextures(1, &splineTexture);
     glBindTexture(GL_TEXTURE_1D, splineTexture);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA32F, splineRes, 0, GL_RGBA, GL_FLOAT, splineData.data());
+    glBindTexture(GL_TEXTURE_1D, 0);
+
+    // For interpolating derivatives
+    auto v0 = [](float a){return (-a * a + 2 * a - 1) / 2.0f;};
+    auto v1 = [](float a){return (3 * a * a - 4 * a) / 2.0f;};
+    auto v2 = [](float a){return (-3 * a * a + 2 * a + 1) / 2.0f;};
+    auto v3 = [](float a){return (a * a / 2.0f);};
+
+    for (int i = 0 ; i < splineRes ; ++i){
+        float alpha = (i + 0.5f) / splineRes;
+        splineData[4 * i] = v0(alpha) + v1(alpha);
+        splineData[4 * i + 1] = v2(alpha) + v3(alpha); // Technically redundnant as g0 + g1 = 0
+        splineData[4 * i + 2] = -(1 + alpha - v1(alpha) / (v0(alpha) + v1(alpha))); // Negative h0 makes fragment shader simpler
+        splineData[4 * i + 3] = 1 - alpha + v3(alpha) / (v2(alpha) + v3(alpha));
+    }
+    glGenTextures(1, &splineDerivTexture);
+    glBindTexture(GL_TEXTURE_1D, splineDerivTexture);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -461,6 +486,8 @@ void FluidRenderer::renderFluid(){
     glActiveTexture(GL_TEXTURE0 + 3);
     glBindTexture(GL_TEXTURE_1D, splineTexture);
     glActiveTexture(GL_TEXTURE0 + 4);
+    glBindTexture(GL_TEXTURE_1D, splineDerivTexture);
+    glActiveTexture(GL_TEXTURE0 + 5);
     glBindTexture(GL_TEXTURE_CUBE_MAP, skyBoxTexture);
     quad.draw(GL_TRIANGLES);
 

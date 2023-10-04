@@ -9,7 +9,10 @@ uniform sampler2D backTexture;
 
 uniform sampler3D levelSetTexture;
 uniform sampler1D splineTexture;
+uniform sampler1D splineDerivTexture;
 uniform samplerCube skyBoxTexture;
+uniform bool tricubicNormals = true;
+
 
 const int gridSize = 32;
 const float planeSize = 10.0f;
@@ -18,7 +21,7 @@ const vec4 sampleColour = vec4(0.227f, 0.621f, 0.777f, 0.8f) * vec4(1.0f, 1.0f, 
 
 const vec4 skyColour = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
-const float step = 1.0f/(gridSize * 2.0f); // Half voxel size
+const float step = 1.0f/(2 * gridSize); // Half voxel size
 
 ////////////////
 //floor colour functions
@@ -40,46 +43,71 @@ vec3 floorStep(vec3 x){
     return x - mod(x, 2 * step) + step; // step = 1/(2 * gS)
 }
 
-vec3 normalAtPoint(vec3 marchingPoint, float sample /*so not sampled redundantly*/){
-    vec3 splineCoords = marchingPoint * gridSize; // in [0,1]
+vec3 normalAtPoint(vec3 pt, float sample /*so not sampled redundantly*/){
+    vec3 surfaceNormal;    
+    if (!tricubicNormals){
+        // Central differences
+        const float dX = 2 * step;
+        const vec3 e_x = vec3(dX, 0.0f, 0.0f);
+        const vec3 e_y = vec3(0.0f, dX, 0.0f);
+        const vec3 e_z = vec3(0.0f, 0.0f, dX);  
+        float levelSetCentre = sample;
+        float levelSetPosX = float(texture(levelSetTexture, pt + e_x).x);
+        float levelSetNegX = float(texture(levelSetTexture, pt - e_x).x);
+        float levelSetPosY = float(texture(levelSetTexture, pt + e_y).x);
+        float levelSetNegY = float(texture(levelSetTexture, pt - e_y).x);
+        float levelSetPosZ = float(texture(levelSetTexture, pt + e_z).x);
+        float levelSetNegZ = float(texture(levelSetTexture, pt - e_z).x);
 
-    // we need to map spline coords to between floor(marching point) and '' + 1
+        surfaceNormal = vec3(levelSetPosX - levelSetNegX, levelSetPosY - levelSetNegY, levelSetPosZ - levelSetNegZ) / (2 * dX);
+    }
+    else{
+        // Tricubic interpolation
 
-    vec4 ghX = texture(splineTexture, splineCoords.x);
-    vec4 ghY = texture(splineTexture, splineCoords.y);
-    vec4 ghZ = texture(splineTexture, splineCoords.z);
-    const float dX = 2 * step;
-    vec3 e_x = vec3(dX, 0.0f, 0.0f);
-    vec3 e_y = vec3(0.0f, dX, 0.0f);
-    vec3 e_z = vec3(0.0f, 0.0f, dX);
-
-
-    // 
-    //const float dX = step;
-    // Central differences
-    float levelSetCentre = sample;
-    float levelSetPosX = float(texture(levelSetTexture, marchingPoint + e_x).x);
-    float levelSetNegX = float(texture(levelSetTexture, marchingPoint - e_x).x);
-    float levelSetPosY = float(texture(levelSetTexture, marchingPoint + e_y).x);
-    float levelSetNegY = float(texture(levelSetTexture, marchingPoint - e_y).x);
-    float levelSetPosZ = float(texture(levelSetTexture, marchingPoint + e_z).x);
-    float levelSetNegZ = float(texture(levelSetTexture, marchingPoint - e_z).x);
-
-    vec3 surfaceNormal = vec3(levelSetPosX - levelSetNegX, levelSetPosY - levelSetNegY, levelSetPosZ - levelSetNegZ) / (2 * dX);
+        vec3 splineCoords = pt * float(gridSize) - vec3(0.5f, 0.5f, 0.5f);
 
 
-    // Tricubic
-    /* vec3 pt = floor(splineCoords);
-    vec3 surfaceNormal = ghZ.x * (ghY.x * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.z, ghZ.z)).xyz + 
-                                     ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.z, ghZ.z)).xyz) +
-                             ghY.y * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.w, ghZ.z)).xyz  +
-                                      ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.w, ghZ.z)).xyz)) +
-                    ghZ.y * (ghY.x * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.z, ghZ.w)).xyz +
-                                      ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.z, ghZ.w)).xyz) +
-                             ghY.y * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.w, ghZ.w)).xyz +
-                                      ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.w, ghZ.w)).xyz)); */
 
+        vec4 ghX = texture(splineDerivTexture, splineCoords.x)/gridSize;
+        vec4 ghY = texture(splineTexture, splineCoords.y)/gridSize;
+        vec4 ghZ = texture(splineTexture, splineCoords.z)/gridSize;
+        
+        // ghX = (g0(x), g1(x), -h0(x), h1(x))
+        surfaceNormal.x = ghZ.x * (ghY.x * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.z, ghZ.z)).x + 
+                                            ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.z, ghZ.z)).x) +
+                                    ghY.y * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.w, ghZ.z)).x  +
+                                            ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.w, ghZ.z)).x)) +
+                            ghZ.y * (ghY.x * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.z, ghZ.w)).x +
+                                            ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.z, ghZ.w)).x) +
+                                    ghY.y * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.w, ghZ.w)).x +
+                                            ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.w, ghZ.w)).x)); 
 
+        ghX = texture(splineTexture, splineCoords.x)/gridSize;
+        ghY = texture(splineDerivTexture, splineCoords.y)/gridSize;                        
+
+        surfaceNormal.y = ghZ.x * (ghY.x * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.z, ghZ.z)).x + 
+                                            ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.z, ghZ.z)).x) +
+                                    ghY.y * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.w, ghZ.z)).x  +
+                                            ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.w, ghZ.z)).x)) +
+                            ghZ.y * (ghY.x * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.z, ghZ.w)).x +
+                                            ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.z, ghZ.w)).x) +
+                                    ghY.y * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.w, ghZ.w)).x +
+                                            ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.w, ghZ.w)).x)); 
+
+        ghY = texture(splineTexture, splineCoords.y)/gridSize;
+        ghZ = texture(splineDerivTexture, splineCoords.z)/gridSize;                        
+
+        surfaceNormal.z = ghZ.x * (ghY.x * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.z, ghZ.z)).x + 
+                                            ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.z, ghZ.z)).x) +
+                                    ghY.y * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.w, ghZ.z)).x  +
+                                            ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.w, ghZ.z)).x)) +
+                            ghZ.y * (ghY.x * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.z, ghZ.w)).x +
+                                            ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.z, ghZ.w)).x) +
+                                    ghY.y * (ghX.x * texture(levelSetTexture, pt + vec3(ghX.z, ghY.w, ghZ.w)).x +
+                                            ghX.y * texture(levelSetTexture, pt + vec3(ghX.w, ghY.w, ghZ.w)).x)); 
+
+                            // Issue: ghN.x and .y have redundancy
+    }
     return normalize(surfaceNormal);
 }
 
@@ -237,10 +265,11 @@ void main()
 
 
 
-    FragColor =  mix(vec4( diffuseColour + ambientColour, 1.0f )/* * finalColour */, mix(refractColour, reflectColour, 0.5), 1.0f);
+    FragColor =  mix(vec4( diffuseColour + ambientColour, 1.0f )/* * finalColour */, mix(refractColour, reflectColour, 0.0f), 1.0f);
 
-    //FragColor.xyz = abs(surfaceNormal);
+   // FragColor.r = exitNormal.y < 0.0f ? 1.0f : 0.0f;
     FragColor.a = reachedSurface ? 1.0f : 0.0f;
+    //if (exitPoint.y < 3 * step) FragColor.r = 1.0f;
 }
 
 

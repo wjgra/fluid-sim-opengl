@@ -19,7 +19,7 @@ const float gravityStrength = 4e-13;
 
 vec4 applyGravity(){
     vec4 vel = texture(velocityTexture, lookUpCoords);
-    if (texture(levelSetTexture, lookUpCoords).x <= 0){
+    if (texture(levelSetTexture, lookUpCoords).x <= 0.0f){
         vel += (gravityStrength * timeStep) * vec4(gravityDirection, 0.0f);
     }
     return vel;
