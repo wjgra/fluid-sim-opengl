@@ -110,6 +110,11 @@ void FluidRenderer::setUpFluidRenderShaders(){
     uniformGravityDirection = forceApplication.shader.getUniformLocation("gravityDirection");
     glUniform1f(uniformGravityDirection, gravityDirection);
 
+    uniformForce = forceApplication.shader.getUniformLocation("extForce");
+    glUniform3f(uniformForce, 0.0f, 0.0f, 0.0f);
+    uniformForcePos = forceApplication.shader.getUniformLocation("extForcePos");
+    glUniform3f(uniformForce, 0.5f, 0.25f, 0.5f);
+
 }
 
 // Populate a 1D texture with cubic interpolation coefficients/offsets
@@ -166,7 +171,7 @@ void FluidRenderer::setUpFluidSimulationTextures(){
     // Level set - initial surface at z = 0.5f
     // Takes the value of zero on air-water and box-water interfaces
     // ***Issue: Should be signed distance field, but using 0.5f outside due to pressure issue
-    std::vector<float> tempSetData(gridSize*gridSize*gridSize, 0.0f);
+    levelSetData = std::vector<float>(gridSize*gridSize*gridSize, 0.0f);
     
     for (int k = 0; k < gridSize; ++k){
        for (int j = 0 ; j < gridSize; ++j){
@@ -174,23 +179,23 @@ void FluidRenderer::setUpFluidSimulationTextures(){
                 //location of (i,j,k) in texture data
                 int index = gridSize * gridSize * k + gridSize * j + i;
                 
-                tempSetData[index] = j - gridSize/2;
+                levelSetData[index] = j - gridSize/2;
                 
                 /* // bottom layer is just outside fluid
                 if ( j == 0){
-                    tempSetData[index] = 0.5f;// Must be 0.5 so = 0 on bdry
+                    levelSetData[index] = 0.5f;// Must be 0.5 so = 0 on bdry
                 }
 
                 // top 'half' decrements to 0.5 in j=gridSize/2 + 1 layer
                 else if (j > gridSize/2){
-                    tempSetData[index] = 0.5f; //same everywhere outside?
-                    //tempSetData[index] = j - gridSize/2 - 0.5f;
+                    levelSetData[index] = 0.5f; //same everywhere outside?
+                    //levelSetData[index] = j - gridSize/2 - 0.5f;
                 }
 
                 // bottom 'half': j in [1,gridSize/2] 0.5f around outside, then -0.5f (to ensure 0 on bdry), then decrement inwards
                 else{
                     if (i == 0 || k == 0 || i == gridSize-1 || k == gridSize-1){//edges
-                        tempSetData[index] = 0.5f;
+                        levelSetData[index] = 0.5f;
                     }
                     else{// Manhattan distance to edge
 
@@ -200,21 +205,21 @@ void FluidRenderer::setUpFluidSimulationTextures(){
                         tempDist = std::min(tempDist, gridSize/2-j);
 
                         tempDist += 0.5f;// Bdry condition correction
-                        tempSetData[index] = -tempDist;
+                        levelSetData[index] = -tempDist;
                     }
                 } */
             }
         }
     }
     
-    levelSetCurrent.generateTexture(tempSetData, true);
-    levelSetNext.generateTexture(tempSetData, true);
+    levelSetCurrent.generateTexture(levelSetData, true);
+    levelSetNext.generateTexture(levelSetData, true);
 
     // Velocity - initially zero everywhere
-    std::vector<float> tempVelocityData(4*gridSize*gridSize*gridSize, 0.0f);
+    velocityData = std::vector<float>(4*gridSize*gridSize*gridSize, 0.0f);
 
-    velocityCurrent.generateTexture(tempVelocityData, false);
-    velocityNext.generateTexture(tempVelocityData, false);
+    velocityCurrent.generateTexture(velocityData, false);
+    velocityNext.generateTexture(velocityData, false);
     
     // Pressure - initially zero 
     std::vector<float> tempPressureData(gridSize*gridSize*gridSize, 0.0f);
@@ -223,7 +228,7 @@ void FluidRenderer::setUpFluidSimulationTextures(){
     pressureNext.generateTexture(tempPressureData, true);
 
     // Temporary set of buffers for use in Jacobi iteration
-    tempVectorQuantity.generateTexture(tempVelocityData, false);
+    tempVectorQuantity.generateTexture(velocityData, false);
     tempScalarQuantity.generateTexture(tempPressureData, true);
     
 };
@@ -309,11 +314,17 @@ void FluidRenderer::renderBackground(){
 
 // 
 void FluidRenderer::integrateFluid(unsigned int frameTime){
+    if(resetLevelSet){
+        glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
+        glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, levelSetData.data());
+        glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
+        glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB32F, gridSize, gridSize, gridSize, 0, GL_RGB, GL_FLOAT, velocityData.data());
+        resetLevelSet = false;
+    }
     // Update gravity vector ///// should this be here?
     if (resetGravity){
         gravityDirection = 0.0f;
         resetGravity = false;
-    
     }
     else if (gravityRotatingPos){
         gravityDirection += frameTime * gravityRotSpeed;
@@ -335,6 +346,17 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
 
     forceApplication.shader.useProgram();
     glUniform3f(uniformGravityDirection, std::sin(gravityDirection), -1.0f * std::cos(gravityDirection), 0.0f);
+
+    if(applyingForce){
+        float squareDistance = std::pow(forceMouseEndX - forceMouseStartX, 2) + std::pow(forceMouseEndY - forceMouseStartY, 2);
+        float mouseAngle = std::atan2(-(forceMouseEndY - forceMouseStartY), forceMouseEndX - forceMouseStartX);
+        float forceSize = std::sqrt(squareDistance) * 1e-11; // consider capping
+        glUniform3f(uniformForce, forceSize * std::cos(mouseAngle), forceSize * std::sin(mouseAngle), 0.0f);
+    }
+    else{
+        glUniform3f(uniformForce, 0.0f, 0.0f, 0.0f);
+    }
+
     applyInnerSlabOp(forceApplication, velocityNext, frameTime);
     std::swap(velocityCurrent, velocityNext);
 
@@ -449,7 +471,6 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     glEnable(GL_BLEND);
 }
 
-
 // Renders levelSetCurrent by marching through the volume
 void FluidRenderer::renderFluid(){
     // Coordinates of entry/exit points of camera ray through the cube are rendered as RGB values to texture
@@ -503,7 +524,7 @@ void FluidRenderer::renderFluid(){
 }
 
 void FluidRenderer::handleEvents(SDL_Event const& event){
-   // if (event.type == SDL_MOUSEBUTTONDOWN){/*std::swap(levelSet.textureCurrent, levelSet.textureNext);*/}
+    //if (event.type == SDL_MOUSEBUTTONDOWN){/*std::swap(levelSet.textureCurrent, levelSet.textureNext);*/}
    // else if (event.type == SDL_MOUSEBUTTONUP){}
     //else if(event.type == SDL_MOUSEMOTION){};
    switch(event.type){
@@ -518,6 +539,9 @@ void FluidRenderer::handleEvents(SDL_Event const& event){
                 case SDL_SCANCODE_G:
                     resetGravity = true;
                     break;
+                case SDL_SCANCODE_R:
+                    resetLevelSet = true;
+                    break;
                 default:
                 break;
             }
@@ -527,7 +551,6 @@ void FluidRenderer::handleEvents(SDL_Event const& event){
                 case SDL_SCANCODE_UP:
                     gravityRotatingPos = false;
                 break;
-
                 case SDL_SCANCODE_DOWN:
                     gravityRotatingNeg = false;
                 break;
@@ -537,6 +560,16 @@ void FluidRenderer::handleEvents(SDL_Event const& event){
                 default:
                 break;
             }
+            break;
+        case SDL_MOUSEBUTTONDOWN:
+                applyingForce = true;
+                SDL_GetMouseState(&forceMouseStartX, &forceMouseStartY);
+            break;
+        case SDL_MOUSEMOTION:
+                //if (applyingForce){SDL_GetMouseState(&forceMouseEndX, &forceMouseEndY);}
+            break;
+        case SDL_MOUSEBUTTONUP:
+                if (applyingForce){SDL_GetMouseState(&forceMouseEndX, &forceMouseEndY);applyingForce = false;}
             break;
         default:
         break;
@@ -650,7 +683,6 @@ void FluidRenderer::applyOuterSlabOp(outerSlabOp slabOp, SQ quantity, unsigned i
 }
 
 // Using scissor and six slab op commands to draw bdry was actually slower!
-
 void FluidRenderer::setUpSkybox(){
     glGenTextures(1, &skyBoxTexture);
     glBindTexture(GL_TEXTURE_CUBE_MAP, skyBoxTexture);

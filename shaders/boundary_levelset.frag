@@ -45,10 +45,4 @@ void main(){
     if (FragColor.x <= 0){
         FragColor.x *= -1.0f;
     }
-    else{
-        //FragColor.x += 1.0f;
-    }
-
-
-    //discard;
 }

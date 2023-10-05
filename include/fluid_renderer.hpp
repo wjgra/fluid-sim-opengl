@@ -55,8 +55,8 @@ private:
     bool resetGravity = false;
     bool cameraRotating = true;
 
-    int const numJacobiIterations = 25;//25;
-    int const numJacobiIterationsPressure = 50;//50
+    int const numJacobiIterations = 30;//25;
+    int const numJacobiIterationsPressure = 60;//50
 
     // Timing variables
     int initTime = 0, bgTime = 0, intTime = 0, renTime = 0;
@@ -69,6 +69,14 @@ private:
                                             ".//skybox//miramar_ft.tga", ".//skybox//miramar_bk.tga"};
     void setUpSkybox();
 
+
+    // For force - consider refreshing start point at intervals
+    GLuint uniformForcePos, uniformForce;
+    bool applyingForce = false;
+    int forceMouseStartX, forceMouseStartY;
+    int forceMouseEndX, forceMouseEndY;
+    bool resetLevelSet = false;
+    std::vector<float> levelSetData, velocityData;
 
     // FOR RENDERING fluid
 

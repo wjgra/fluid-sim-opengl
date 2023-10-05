@@ -127,6 +127,22 @@ vec4 rayColour(vec3 startPoint, vec3 dir){
     return outColour;
 }
 
+vec4 rayColourBlack(vec3 startPoint, vec3 dir){
+    vec4 outColour;
+    if (dir.y >= 0.0f){ // Ray pointing up
+        outColour =  vec4(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+    else{ // Ray pointing down
+        float lambda = (-startPoint.y + 2 * step) * cubeScale;
+        lambda /= dir.y;
+        vec3 floorPos = (startPoint - vec3(0.5f, 0.5f, 0.5f)) * cubeScale + lambda * dir; 
+        outColour = getFloorColor(floorPos / ( planeSize));
+        // Blend bg plane with skybox
+        //outColour.xyz = outColour.w * outColour.xyz + (1 - outColour.w) * texture(skyBoxTexture, dir).xyz;
+    }
+    return outColour;
+}
+
 void main()
 {
     // Consider using subtractive blending instead
@@ -242,33 +258,32 @@ void main()
     reflectColour.w = float(reachedSurface); 
 
 
-    // Refraction
+    // Exit refraction
+    float k = 1.0f - refIndex * refIndex * (1.0f - dot(exitNormal, refractDir) * dot(exitNormal, refractDir));
     
-    vec4 refractColour;
-    vec3 tempRefractDir = refract(refractDir, -exitNormal, refIndex);
-    tempRefractDir = normalize(tempRefractDir);
-
-    if (false && exited && exitPoint.y <= 2 * step + 1e-4){ // Issue : handle frustrated TIR?
-       // FragColor = vec4(1.0, 0.0f, 0.0f, 1.0f); return;
-    }
-    else{
-        if (false){// Issue : handle TIR?
-            refractDir = reflect(refractDir, -exitNormal);
+    if (k < 0.0f){// TIR
+        if (exitPoint.y < 3.0f * step){
+            //  no op
         }
         else{
-            refractDir = tempRefractDir;
-        } 
-        refractColour = rayColour(exitPoint, refractDir);
+            refractDir = reflect(refractDir, -exitNormal);
+        }
     }
-   
+    else{
+        refractDir = refIndex * refractDir + (refIndex * dot(-exitNormal, refractDir) + sqrt(k)) * exitNormal;
+    }
+  
+    
+    vec4 refractColour = rayColourBlack(exitPoint, refractDir);
     refractColour.w = float(reachedSurface);
 
 
-
-    FragColor =  mix(vec4( diffuseColour + ambientColour, 1.0f )/* * finalColour */, mix(refractColour, reflectColour, 0.0f), 1.0f);
+    float fresnel = max(0.0f, dot(-dir, surfaceNormal));
+    FragColor =  mix(vec4( diffuseColour + ambientColour, 1.0f )/* * finalColour */, mix(reflectColour, refractColour, fresnel), 1.0f);
 
    // FragColor.r = exitNormal.y < 0.0f ? 1.0f : 0.0f;
     FragColor.a = reachedSurface ? 1.0f : 0.0f;
+    //FragColor.xyz = abs(refractDir);
     //if (exitPoint.y < 3 * step) FragColor.r = 1.0f;
 }
 
