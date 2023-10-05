@@ -10,6 +10,7 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     renderFluidShader(".//shaders//fluid.vert", ".//shaders//fluid.frag"),
     // Slab operations
     advection(".//shaders//slab_operation.vert", ".//shaders//advect_quantity.frag", {"velocityTexture", "quantityTexture"}),
+    advectionVel(".//shaders//slab_operation.vert", ".//shaders//advect_velocity.frag", {"velocityTexture", "quantityTexture"}),
     diffusion(".//shaders//slab_operation.vert", ".//shaders//diffuse_quantity.frag", {"quantityTexture"}),
     forceApplication(".//shaders//slab_operation.vert", ".//shaders//apply_force_to_velocity.frag", {"velocityTexture", "levelSetTexture"}),
     passThrough(".//shaders//slab_operation.vert", ".//shaders//pass_through.frag", {"quantityTexture"}),
@@ -309,6 +310,7 @@ void FluidRenderer::frame(unsigned int frameTime){
 void FluidRenderer::renderBackground(){
     backgroundPlaneShader.useProgram();
     glUniformMatrix4fv(backgroundPlaneUniforms.viewTrans, 1, GL_FALSE, glm::value_ptr(camera.viewMatrix));
+    backgroundPlane.bindVAO();
     backgroundPlane.draw(GL_TRIANGLES);
 }
 
@@ -371,7 +373,7 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
     glActiveTexture(GL_TEXTURE0 + 1);
     glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-    applyInnerSlabOp(advection, velocityNext, frameTime);
+    applyInnerSlabOp(advectionVel, velocityNext, frameTime);
 
     // Advect Level Set using old velocity (but with corrected BC)
     glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
@@ -476,13 +478,13 @@ void FluidRenderer::renderFluid(){
     // Coordinates of entry/exit points of camera ray through the cube are rendered as RGB values to texture
     raycastingPosShader.useProgram();
     glUniformMatrix4fv(raycastingPosUniforms.viewTrans, 1, GL_FALSE, glm::value_ptr(camera.viewMatrix));
-
     // Draw front of cube (cull back faces) in RGB to texture
     glBindFramebuffer(GL_FRAMEBUFFER, frontCube.FBO);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
+    cube.bindVAO();
     cube.draw(GL_TRIANGLES);
 
     // Draw back of cube (cull front faces) in RGB to texture
@@ -510,6 +512,7 @@ void FluidRenderer::renderFluid(){
     glBindTexture(GL_TEXTURE_1D, splineDerivTexture);
     glActiveTexture(GL_TEXTURE0 + 5);
     glBindTexture(GL_TEXTURE_CUBE_MAP, skyBoxTexture);
+    quad.bindVAO();
     quad.draw(GL_TRIANGLES);
 
     // Tidy up texture bindings
@@ -615,10 +618,16 @@ void FluidRenderer::Drawable::releaseBuffers(){
     glDeleteBuffers(1, &VBO);
 }
 
-void FluidRenderer::Drawable::draw(GLint drawingMode){
+void FluidRenderer::Drawable::bindVAO(){
     glBindVertexArray(VAO);
-    glDrawArrays(drawingMode, 0, vertices.size());
+}
+
+void FluidRenderer::Drawable::unbindVAO(){
     glBindVertexArray(0);
+}
+
+void FluidRenderer::Drawable::draw(GLint drawingMode){
+    glDrawArrays(drawingMode, 0, vertices.size());
 }
 
 void FluidRenderer::RenderTarget::setUpBuffers(){
@@ -662,6 +671,7 @@ FluidRenderer::SlabOperation::SlabOperation(const std::string vertexShaderPath, 
 
 // ***Issue: ideally these would be a member of slab op, but then they don't have access to quad!
 void FluidRenderer::applySlabOp(SlabOperation slabOp, SQ quantity, unsigned int frameTime, int layerFrom, int layerTo){
+    quad.bindVAO();
     slabOp.shader.useProgram();
     glUniform1f(slabOp.uniformTimeStep, (float)frameTime);
     for (int zSlice = layerFrom; zSlice < layerTo; ++zSlice){

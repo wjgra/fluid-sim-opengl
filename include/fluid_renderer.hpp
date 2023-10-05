@@ -55,8 +55,8 @@ private:
     bool resetGravity = false;
     bool cameraRotating = true;
 
-    int const numJacobiIterations = 30;//25;
-    int const numJacobiIterationsPressure = 60;//50
+    int const numJacobiIterations = 25;//30;//25;
+    int const numJacobiIterationsPressure = 50;//60;//50
 
     // Timing variables
     int initTime = 0, bgTime = 0, intTime = 0, renTime = 0;
@@ -94,6 +94,8 @@ private:
     struct Drawable{
         Drawable(std::vector<float> const& verts, unsigned int vertexDimension);
         ~Drawable();
+        void bindVAO();
+        static void unbindVAO();
         void draw(GLint drawingMode = GL_TRIANGLES);
     private:
         void setUpBuffers(unsigned int vertDim = 3);
@@ -156,7 +158,7 @@ private:
                 uniformTimeStep = shader.getUniformLocation("timeStep");
 
             };
-    } advection, diffusion, forceApplication, passThrough, divergence, pressurePoisson, removeDivergence;
+    } advection, advectionVel, diffusion, forceApplication, passThrough, divergence, pressurePoisson, removeDivergence;
 
     struct outerSlabOp : public SlabOperation{
         outerSlabOp(const std::string vertexShaderPath, const std::string fragmentShaderPath, std::vector<std::string> textureNames) : 

@@ -195,7 +195,7 @@ void main()
         
         float sample = float(texture(levelSetTexture, marchingPoint).x);
 
-        if (sample < 0){
+        if (sample < 0.0f){
             if (!reachedSurface){
                 // FragColor = vec4(-1.0f/sample, 0.0f, 0.0f, 1.0f); return;
                 reachedSurface  = true;

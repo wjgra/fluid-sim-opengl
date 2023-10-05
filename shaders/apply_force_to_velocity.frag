@@ -15,7 +15,7 @@ const float step = 1.0f/gridSize;
 vec3 lookUpCoords = vec3(TextureCoord, zSlice * step + 0.5f * step); // consider calculating in vertex shader
 
 uniform vec3 gravityDirection = vec3(0.0, -1.0f, 0.0f);
-const float gravityStrength = 4e-13;
+const float gravityStrength = 1e-12;//4e-13;
 
 uniform vec3 extForce = vec3(0.0f, 0.0f, 0.0f); // set to zero when no force applied
 uniform vec3 extForcePos = vec3(0.5f, 0.25f, 0.5f);

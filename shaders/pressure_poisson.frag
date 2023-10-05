@@ -36,4 +36,8 @@ void main(){
     else{
         FragColor = vec4(solvePoisson(), 0.0f, 0.0f, 0.0f);
     }
+    /* // Relaxation
+    float beta = 0.6f;
+    FragColor.x *= beta;
+    FragColor.x += (1.0f - beta) * texture(pressureTexture, lookUpCoords).x; */
 }
