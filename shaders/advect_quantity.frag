@@ -8,6 +8,7 @@ uniform sampler3D quantityTexture; // Quantity to be advected
 
 uniform float timeStep; // in microseconds
 uniform float zSlice;
+//uniform float gravityDir = 0.0f;
 
 const int gridSize = 32;
 const float step = 1.0f/gridSize;
@@ -23,8 +24,10 @@ void main(){
     //float sample = texture(quantityTexture, lookUpCoords).x;
     FragColor = advectQuantity();
 
-    const float beta = 0.1f;
+    const float beta = 0.008f;
     float phiInf = lookUpCoords.y * gridSize - (0.5f * gridSize);
+    // For changeable gravity direction:
+    // float phiInf = gridSize * (cos(gravityDir) * (lookUpCoords.y - 0.5f) - sin(gravityDir) * (lookUpCoords.x - 0.5f));
     if (phiInf < 0){
         FragColor.x *= (1.0f - beta);
         FragColor.x += beta * phiInf;

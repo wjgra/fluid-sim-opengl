@@ -43,6 +43,9 @@ void AppState::handleEvents(SDL_Event const&  event){
                 case SDL_SCANCODE_F11:
                     window.toggleFullScreen();
                     break;
+                case SDL_SCANCODE_ESCAPE:
+                    quitApp();
+                    break;
                 default:
                     break;
             }

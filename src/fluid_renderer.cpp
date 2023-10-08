@@ -15,19 +15,19 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     forceApplication(".//shaders//slab_operation.vert", ".//shaders//apply_force_to_velocity.frag", {"velocityTexture", "levelSetTexture"}),
     passThrough(".//shaders//slab_operation.vert", ".//shaders//pass_through.frag", {"quantityTexture"}),
 
-    boundaryVelocity(".//shaders//slab_operation.vert", ".//shaders//boundary_velocity.frag", {"velocityTexture"}),
-    boundaryLS(".//shaders//slab_operation.vert", ".//shaders//boundary_levelset.frag", {"levelSetTexture"}),
-    boundaryPressure(".//shaders//slab_operation.vert", ".//shaders//boundary_pressure.frag", {"pressureTexture"}),
-    
     pressurePoisson(".//shaders//slab_operation.vert", ".//shaders//pressure_poisson.frag", {"pressureTexture", "levelSetTexture", "divergenceTexture"}),
     divergence(".//shaders//slab_operation.vert", ".//shaders//divergence.frag", {"velocityTexture"}),
     removeDivergence(".//shaders//slab_operation.vert", ".//shaders//remove_divergence.frag", {"velocityTexture", "pressureTexture"}),
+    
+    boundaryVelocity(".//shaders//slab_operation.vert", ".//shaders//boundary_velocity.frag", {"velocityTexture"}),
+    boundaryLS(".//shaders//slab_operation.vert", ".//shaders//boundary_levelset.frag", {"levelSetTexture"}),
+    boundaryPressure(".//shaders//slab_operation.vert", ".//shaders//boundary_pressure.frag", {"pressureTexture"}),
     clearSlabs(".//shaders//slab_operation.vert", ".//shaders//clear_slabs.frag", {})
 {   
     setUpFluidRenderShaders();
     setUpFluidSimulationTextures();
     setUpFluidSimulationFBOs();
-};
+}
 
 void FluidRenderer::setUpFluidRenderShaders(){
     // Get uniform locations and set values for raycastingPosShader
@@ -107,6 +107,9 @@ void FluidRenderer::setUpFluidRenderShaders(){
     uniformSkyBoxTexture = renderFluidShader.getUniformLocation("skyBoxTexture");
     glUniform1i(uniformSkyBoxTexture, 5);
 
+    /* advection.shader.useProgram();
+    uniformGravityDirAdv = advection.shader.getUniformLocation("gravityDir"); */
+
     forceApplication.shader.useProgram();
     uniformGravityDirection = forceApplication.shader.getUniformLocation("gravityDirection");
     glUniform1f(uniformGravityDirection, gravityDirection);
@@ -114,7 +117,7 @@ void FluidRenderer::setUpFluidRenderShaders(){
     uniformForce = forceApplication.shader.getUniformLocation("extForce");
     glUniform3f(uniformForce, 0.0f, 0.0f, 0.0f);
     uniformForcePos = forceApplication.shader.getUniformLocation("extForcePos");
-    glUniform3f(uniformForce, 0.5f, 0.25f, 0.5f);
+    glUniform3f(uniformForce, 0.5f, 0.15f, 0.5f);
 
 }
 
@@ -232,7 +235,7 @@ void FluidRenderer::setUpFluidSimulationTextures(){
     tempVectorQuantity.generateTexture(velocityData, false);
     tempScalarQuantity.generateTexture(tempPressureData, true);
     
-};
+}
 
 // Generates a new 3D floating-point texture with the given input as the initial data
 void FluidRenderer::SQ::generateTexture(std::vector<float> data, bool scalarQuantity = false){
@@ -281,7 +284,7 @@ void FluidRenderer::frame(unsigned int frameTime){
     // ***Refactor: Update camera
     if (cameraRotating){
         horizRot += frameTime * horizRotSpeed;
-        camera.pos = glm::vec3(glm::rotate(glm::mat4(1.0f), glm::radians(horizRot), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0.0f, 1.5f, 3.0f, 1.0f));
+        camera.pos = glm::vec3(glm::rotate(glm::mat4(1.0f), horizRot, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0.0f, 1.5f, 3.0f, 1.0f));
         camera.updateMatrix();
     }
     
@@ -323,8 +326,8 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
         glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB32F, gridSize, gridSize, gridSize, 0, GL_RGB, GL_FLOAT, velocityData.data());
         resetLevelSet = false;
     }
-    // Update gravity vector ///// should this be here?
-    if (resetGravity){
+    // Update gravity vector
+    /* if (resetGravity){
         gravityDirection = 0.0f;
         resetGravity = false;
     }
@@ -333,8 +336,7 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     }
     else if (gravityRotatingNeg){
         gravityDirection -= frameTime * gravityRotSpeed;
-    }
-    ///////////////////
+    } */
    
     glDisable(GL_BLEND);
     glViewport(0,0,gridSize, gridSize);
@@ -346,14 +348,19 @@ void FluidRenderer::integrateFluid(unsigned int frameTime){
     glActiveTexture(GL_TEXTURE0 + 1);
     glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
 
+    /* advection.shader.useProgram();
+    glUniform1f(uniformGravityDirAdv, gravityDirection);*/
+
     forceApplication.shader.useProgram();
-    glUniform3f(uniformGravityDirection, std::sin(gravityDirection), -1.0f * std::cos(gravityDirection), 0.0f);
+    //glUniform3f(uniformGravityDirection, std::sin(gravityDirection), -1.0f * std::cos(gravityDirection), 0.0f);
 
     if(applyingForce){
         float squareDistance = std::pow(forceMouseEndX - forceMouseStartX, 2) + std::pow(forceMouseEndY - forceMouseStartY, 2);
         float mouseAngle = std::atan2(-(forceMouseEndY - forceMouseStartY), forceMouseEndX - forceMouseStartX);
-        float forceSize = std::sqrt(squareDistance) * 1e-11; // consider capping
-        glUniform3f(uniformForce, forceSize * std::cos(mouseAngle), forceSize * std::sin(mouseAngle), 0.0f);
+        float forceSize = std::min(squareDistance, 1000.0f) * 1e-11;
+        glUniform3f(uniformForce, forceSize * std::cos(mouseAngle) * std::cos(horizRot), forceSize * std::sin(mouseAngle), -forceSize * std::cos(mouseAngle) * std::sin(horizRot));
+        forceMouseStartX = forceMouseEndX;
+        forceMouseStartY = forceMouseEndY;
     }
     else{
         glUniform3f(uniformForce, 0.0f, 0.0f, 0.0f);
@@ -527,13 +534,10 @@ void FluidRenderer::renderFluid(){
 }
 
 void FluidRenderer::handleEvents(SDL_Event const& event){
-    //if (event.type == SDL_MOUSEBUTTONDOWN){/*std::swap(levelSet.textureCurrent, levelSet.textureNext);*/}
-   // else if (event.type == SDL_MOUSEBUTTONUP){}
-    //else if(event.type == SDL_MOUSEMOTION){};
    switch(event.type){
         case SDL_KEYDOWN:
             switch(event.key.keysym.scancode){
-                case SDL_SCANCODE_UP:
+                /* case SDL_SCANCODE_UP:
                     gravityRotatingPos = true;
                 break;
                 case SDL_SCANCODE_DOWN:
@@ -541,7 +545,7 @@ void FluidRenderer::handleEvents(SDL_Event const& event){
                 break;
                 case SDL_SCANCODE_G:
                     resetGravity = true;
-                    break;
+                    break; */
                 case SDL_SCANCODE_R:
                     resetLevelSet = true;
                     break;
@@ -551,11 +555,11 @@ void FluidRenderer::handleEvents(SDL_Event const& event){
             break;
         case SDL_KEYUP:
             switch(event.key.keysym.scancode){
-                case SDL_SCANCODE_UP:
+                /* case SDL_SCANCODE_UP:
                     gravityRotatingPos = false;
                 break;
                 case SDL_SCANCODE_DOWN:
-                    gravityRotatingNeg = false;
+                    gravityRotatingNeg = false; */
                 break;
                 case SDL_SCANCODE_SPACE:
                     cameraRotating = !cameraRotating;
@@ -567,17 +571,19 @@ void FluidRenderer::handleEvents(SDL_Event const& event){
         case SDL_MOUSEBUTTONDOWN:
                 applyingForce = true;
                 SDL_GetMouseState(&forceMouseStartX, &forceMouseStartY);
+                forceMouseEndX = forceMouseStartX;
+                forceMouseEndY = forceMouseStartY;
             break;
         case SDL_MOUSEMOTION:
-                //if (applyingForce){SDL_GetMouseState(&forceMouseEndX, &forceMouseEndY);}
+                if (applyingForce){SDL_GetMouseState(&forceMouseEndX, &forceMouseEndY);}
             break;
         case SDL_MOUSEBUTTONUP:
-                if (applyingForce){SDL_GetMouseState(&forceMouseEndX, &forceMouseEndY);applyingForce = false;}
+                applyingForce = false;
             break;
         default:
         break;
     }
-};
+}
 
 FluidRenderer::Drawable::Drawable(std::vector<float> const& verts, unsigned int vertexDimension) : 
     vertices{verts}
@@ -662,12 +668,12 @@ FluidRenderer::SlabOperation::SlabOperation(const std::string vertexShaderPath, 
     quadUniforms.projTrans = shader.getUniformLocation("projection");
     glUniformMatrix4fv(quadUniforms.projTrans, 1, GL_FALSE, glm::value_ptr(projection));
     
-    for (int i = 0 ; i < textureNames.size() ; ++i){
+    for (unsigned int i = 0 ; i < textureNames.size() ; ++i){
         if (textureNames[i].length() != 0){
             glUniform1i(shader.getUniformLocation(textureNames[i]), i);
         }
     }
-};
+}
 
 // ***Issue: ideally these would be a member of slab op, but then they don't have access to quad!
 void FluidRenderer::applySlabOp(SlabOperation slabOp, SQ quantity, unsigned int frameTime, int layerFrom, int layerTo){
@@ -697,7 +703,7 @@ void FluidRenderer::setUpSkybox(){
     glGenTextures(1, &skyBoxTexture);
     glBindTexture(GL_TEXTURE_CUBE_MAP, skyBoxTexture);
     int w, h, components;
-    for (int i = 0 ; i < skyBoxPaths.size() ; ++i){
+    for (unsigned int i = 0 ; i < skyBoxPaths.size() ; ++i){
         //stbi_set_flip_vertically_on_load(true); 
         unsigned char * data = stbi_load(skyBoxPaths[i].c_str(), &w, &h, &components, 0);
         //stbi_set_flip_vertically_on_load(false); 

@@ -46,7 +46,7 @@ private:
     // cube location - change this to camera...
     float horizRot = 0.0f;
     float vertRot = 0.0f;
-    float horizRotSpeed = glm::radians(600.0f)*1e-6;
+    float horizRotSpeed = glm::radians(1e-5);
     float const planeSize = 10.0f;
     float gravityDirection = 0.0f; GLint uniformGravityDirection; 
     float const gravityRotSpeed = glm::radians(6.0f)*1e-5;
@@ -78,6 +78,7 @@ private:
     bool resetLevelSet = false;
     std::vector<float> levelSetData, velocityData;
 
+    //GLuint uniformGravityDirAdv;
     // FOR RENDERING fluid
 
     struct Camera{
@@ -158,7 +159,7 @@ private:
                 uniformTimeStep = shader.getUniformLocation("timeStep");
 
             };
-    } advection, advectionVel, diffusion, forceApplication, passThrough, divergence, pressurePoisson, removeDivergence;
+    } advection, advectionVel, diffusion, forceApplication, passThrough, pressurePoisson, divergence, removeDivergence;
 
     struct outerSlabOp : public SlabOperation{
         outerSlabOp(const std::string vertexShaderPath, const std::string fragmentShaderPath, std::vector<std::string> textureNames) : 

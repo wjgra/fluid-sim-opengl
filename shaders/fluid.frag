@@ -150,7 +150,7 @@ void main()
     vec4 backPos = texture(backTexture, TextureCoord);
     vec3 dir = (backPos - frontPos).xyz;
     
-     // Draw zero planes - can use this technique to draw 'box' if desired
+    // Indicate zero planes
     /* if (frontPos.x < 0.01f && frontPos.x > 0.0f){
         FragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
         return;
@@ -163,7 +163,6 @@ void main()
         FragColor = vec4(0.0f, 0.0f, 1.0f, 1.0f);
         return;
     } */
-    // End zero planes
 
     float len = length(dir);
     dir /= len;
