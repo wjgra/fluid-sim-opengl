@@ -25,4 +25,4 @@ Sample GCC compilation command
 ```
 g++ src\*.cpp src\*.c -o fluid.exe -W -Wall -Wextra -pedantic -I "C:\SDL-release-2.26.4\include" -lopengl32 -lglu32 -pthread "SDL2.dll" -O3 -DNDEBUG
 ```
-I am yet to port this project to Emscripten. I believe there are differences between OpenGL 3.3 and OpenGL ES 2.0 (which is used by Emscripten) for valid render targets. In particular, I recall there being issues with rendering to a scalar (i.e. non-RGB) texture, which is used extensively in this project to improve performance. It would be good to investigate this in more detail at some point.
+I am yet to port this project to Emscripten. I believe there are issues with rendering to scalar (i.e. non-RGB) textures in OpenGL ES 2.0 (which is used by Emscripten). Since this is used extensively in this project to improve performance, porting could be tricky. It would be good to investigate this in more detail at some point.
