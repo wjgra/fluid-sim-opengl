@@ -24,7 +24,7 @@ void main(){
     //float sample = texture(quantityTexture, lookUpCoords).x;
     FragColor = advectQuantity();
 
-    const float beta = 0.008f;
+    const float beta = 0.01f;//0.008f;
     float phiInf = lookUpCoords.y * gridSize - (0.5f * gridSize);
     // For changeable gravity direction:
     // float phiInf = gridSize * (cos(gravityDir) * (lookUpCoords.y - 0.5f) - sin(gravityDir) * (lookUpCoords.x - 0.5f));
