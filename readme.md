@@ -2,7 +2,7 @@
 ## Overview
 This project is an interactive 3D fluid simulation with ray-traced reflection and refraction, where the underlying differential equations are solved numerically on the GPU. The quantities (velocity, pressure, distance from surface) are stored in 3D textures, which are modified at each time step by rendering to each 'slice' of the 3D textures using a fragment shader.
 
-Essentially, this is my version of the [Nvidia 'Box of Smoke' demo](https://www.nvidia.com/en-gb/geforce/community/demos/) as described in [GPU Gems 3](https://developer.nvidia.com/gpugems/gpugems3/part-v-physics-simulation/chapter-30-real-time-simulation-and-rendering-3d-fluids), based on the methodology of Stam, Jos. 1999. "Stable Fluids." *In Proceedings of SIGGRAPH 99*, pp. 121–128.
+Essentially, this is my version of the [Nvidia 'Box of Smoke' demo](https://www.nvidia.com/en-gb/geforce/community/demos/) as described in [GPU Gems 3](https://developer.nvidia.com/gpugems/gpugems3/part-v-physics-simulation/chapter-30-real-time-simulation-and-rendering-3d-fluids), based on the methodology of Stam, Jos. 1999. *"Stable Fluids."* In Proceedings of SIGGRAPH 99, *pp. 121–128*.
 
 
 ![Fluid simulation preview](https://www.wjgrace.co.uk/images/fluid_thumbnail.gif) 
