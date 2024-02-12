@@ -18,13 +18,16 @@ class ShaderProgram
 {
 public:
     ShaderProgram(const std::string vertexPath, const std::string fragmentPath);
+    ShaderProgram(ShaderProgram const&) = delete;
+    ShaderProgram(ShaderProgram const&&) = delete;
+    ShaderProgram& operator=(ShaderProgram const&) = delete;
+    ShaderProgram& operator=(ShaderProgram const&&) = delete;
     ~ShaderProgram();
     GLuint getID() const;
-    void useProgram();
+    void useProgram() const;
     GLint getUniformLocation(const std::string &name) const;
-    // to do: overloaded functions to set uniform values (e.g. b/o https://registry.khronos.org/OpenGL-Refpages/gl4/html/glUniform.xhtml)
 private:
-    GLuint programID;
+    GLuint m_programID;
     GLuint compileShader(const char *source, GLenum shaderType);
 };
   

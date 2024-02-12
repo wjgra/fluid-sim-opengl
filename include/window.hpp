@@ -5,28 +5,31 @@
 #include <SDL_opengl.h>
 
 #include <string>
+#include <stdexcept>
+#include <iostream>
 
 class Window{
+private:
+    Uint32 const m_windowCreationFlags = SDL_WINDOW_OPENGL;
 public:
     Window(unsigned int width, unsigned int height);
     ~Window();
-    Window(const Window& other) = delete;
-    Window &operator=(const Window& other) = delete;
-    Window(Window&& other) = delete;
-    Window &operator=(Window&& other) = delete;
-    // Utility functions
-    SDL_Window* getWindow();
+    Window(Window const&) = delete;
+    Window(Window const&&) = delete;
+    Window& operator=(Window const&) = delete;
+    Window& operator=(Window const&&) = delete;
+    bool successfullyInitialised() const;
+    SDL_Window* getWindow() const;
     void toggleFullScreen();
     void frame(unsigned int frameTime);
-    unsigned int const winWidth = 640;
-    unsigned int const winHeight = 480;
+    unsigned int const m_winWidth;
+    unsigned int const m_winHeight;
 private:
-    SDL_Window* window = nullptr;
-    bool fullScreen = false;
-    Uint32 winFlags = SDL_WINDOW_OPENGL;
-    // FPS counter
-    unsigned int accumulatedFrameTime = 0;
-    unsigned int numFrames = 0;
+    SDL_Window* m_window = nullptr;
+    bool m_fullScreen = false;
+    unsigned int m_timeSinceLastUpdate = 0;
+    unsigned int m_numberOfFramesSinceLastUpdate = 0;
+    bool m_successfullyInitialised = false;
 };
 
 #endif

@@ -15,31 +15,20 @@
 
 class Texture{
 public:
-    Texture(unsigned int w, unsigned int h);
+    Texture(unsigned int w, unsigned int h, bool useNearest = false);
     Texture(std::string const& path);
-    Texture(Texture const& other) = delete;
-    Texture& operator=(Texture const& other) = delete;
-    Texture(Texture&& other) :
-        texture{other.texture},
-        width{other.width},
-        height{other.height},
-        numberOfChannels{other.numberOfChannels}{
-        other.texture = 0;
-    }
-    Texture& operator=(Texture&& other){
-        if (this != &other){
-            std::swap(texture, other.texture);
-        }
-        return *this;
-    }
+    Texture(Texture const&) = delete;
+    Texture(Texture const&&) = delete;
+    Texture& operator=(Texture const&) = delete;
+    Texture& operator=(Texture const&&) = delete;
     ~Texture();
-    void bind();
-    void unbind();
-    GLuint getLocation();
+    void bind() const;
+    void unbind() const;
+    GLuint getLocation() const;
     void resize(unsigned int width, unsigned int height);
 private:
-    GLuint texture;
-    GLint width, height, numberOfChannels;
+    GLuint m_texture;
+    GLint m_width, m_height, m_numberOfChannels;
 };
 
 #endif

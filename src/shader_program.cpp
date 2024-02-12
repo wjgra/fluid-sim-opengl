@@ -1,6 +1,5 @@
 #include "../include/shader_program.hpp"
 
-// Constructs a ShaderProgram object
 // To do: move file reading out of the constructor
 ShaderProgram::ShaderProgram(const std::string vertexPath, const std::string fragmentPath){
 
@@ -30,7 +29,7 @@ ShaderProgram::ShaderProgram(const std::string vertexPath, const std::string fra
         vertexSource   = vertexStream.str();
         fragmentSource = fragmentStream.str();		
     }
-    catch(std::ifstream::failure e)
+    catch(std::ifstream::failure const& e)
     {
         std::cerr << "Failed to load shader from file." << std::endl;
     }
@@ -39,19 +38,19 @@ ShaderProgram::ShaderProgram(const std::string vertexPath, const std::string fra
     GLuint fragmentShaderID = compileShader((const char*)fragmentSource.c_str(), GL_FRAGMENT_SHADER);
 
 
-    programID = glCreateProgram();
+    m_programID = glCreateProgram();
 
-    glAttachShader(programID, vertexShaderID);
-    glAttachShader(programID, fragmentShaderID);
-    glLinkProgram(programID);
+    glAttachShader(m_programID, vertexShaderID);
+    glAttachShader(m_programID, fragmentShaderID);
+    glLinkProgram(m_programID);
 
     int success, logLength;
-    glGetProgramiv(programID, GL_LINK_STATUS, &success);
+    glGetProgramiv(m_programID, GL_LINK_STATUS, &success);
     if(!success)
     {
-        glGetProgramiv(programID, GL_INFO_LOG_LENGTH, &logLength);
+        glGetProgramiv(m_programID, GL_INFO_LOG_LENGTH, &logLength);
         std::vector<char> errorLog((logLength > 1)? logLength : 1);
-        glGetProgramInfoLog(programID, logLength, NULL, errorLog.data());
+        glGetProgramInfoLog(m_programID, logLength, NULL, errorLog.data());
         std::cout << "Failed to link shader program.\n" << errorLog.data() << std::endl;
     }
 
@@ -84,23 +83,17 @@ GLuint ShaderProgram::compileShader(const char *source, GLenum shaderType){
 }
 
 ShaderProgram::~ShaderProgram(){
+    glDeleteProgram(m_programID);
 }
 
-// Gets the ID of shader program
 GLuint ShaderProgram::getID() const{
-        return programID;
+    return m_programID;
 }
 
-// Activates the shader program for use
-void ShaderProgram::useProgram(){
-    glUseProgram(programID);
+void ShaderProgram::useProgram() const{
+    glUseProgram(m_programID);
 }
 
-// Retrieves the location of the named uniform variable
 GLint ShaderProgram::getUniformLocation(const std::string &name) const{
-    GLint uniformLocation = glGetUniformLocation(programID, name.c_str());
-    if (uniformLocation < 0)
-        throw std::string("Failed to get location of uniform \'" + name + "\'\n");
-    else
-        return uniformLocation;
+    return glGetUniformLocation(m_programID, name.c_str());
 }

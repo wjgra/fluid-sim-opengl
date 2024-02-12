@@ -676,7 +676,7 @@ FluidRenderer::SlabOperation::SlabOperation(const std::string vertexShaderPath, 
 }
 
 // ***Issue: ideally these would be a member of slab op, but then they don't have access to quad!
-void FluidRenderer::applySlabOp(SlabOperation slabOp, SQ quantity, unsigned int frameTime, int layerFrom, int layerTo){
+void FluidRenderer::applySlabOp(SlabOperation& slabOp, SQ& quantity, unsigned int frameTime, int layerFrom, int layerTo){
     quad.bindVAO();
     slabOp.shader.useProgram();
     glUniform1f(slabOp.uniformTimeStep, (float)frameTime);
@@ -687,12 +687,12 @@ void FluidRenderer::applySlabOp(SlabOperation slabOp, SQ quantity, unsigned int 
     }
 }
 
-void FluidRenderer::applyInnerSlabOp(innerSlabOp slabOp, SQ quantity, unsigned int frameTime){
+void FluidRenderer::applyInnerSlabOp(innerSlabOp& slabOp, SQ& quantity, unsigned int frameTime){
     glScissor(1,1,gridSize-2,gridSize-2);
     applySlabOp(slabOp, quantity, frameTime, 1, gridSize-1);
 }
 
-void FluidRenderer::applyOuterSlabOp(outerSlabOp slabOp, SQ quantity, unsigned int frameTime){
+void FluidRenderer::applyOuterSlabOp(outerSlabOp& slabOp, SQ& quantity, unsigned int frameTime){
     glScissor(0,0,gridSize,gridSize);
     //glScissor(0,0,1,gridSize);
     applySlabOp(slabOp, quantity, frameTime, 0, gridSize);

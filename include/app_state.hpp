@@ -23,26 +23,25 @@
 #include "../include/fluid_renderer.hpp"
 
 class AppState{
+private:
+    unsigned int const m_windowDisplayScale;
+    unsigned int const m_notionalWindowWidth;
+    unsigned int const m_notionalWindowHeight;
 public:
-    AppState(unsigned int scale);
+    AppState(unsigned int w, unsigned int h, unsigned int scale = 1);
+    bool successfullyInitialised() const;
     void beginLoop();
     void mainLoop();
     void handleEvents(SDL_Event const&  event);
     void frame(unsigned int frameTime);
     void quitApp();
-    // Window/context state parameters
-    bool quit = false;
-    SDL_Event event;
-    std::chrono::time_point<std::chrono::high_resolution_clock> tStart, tNow;
-    // -- Viewport resolution is winScale * notional dimension
-    unsigned int const winScale = 1;
-    // -- Dimensions of notional window
-    int const winWidth = 640;
-    int const winHeight = 480;
-    // Ordering ensures context and shaders initialised before game objects and destroyed in reverse order
-    Window window;
-    Context context;
-    GUIState guiState;
-    FluidRenderer fluidRenderer;
+    bool timeToQuit() const;
+private:
+    bool m_quitApplication;
+    std::chrono::time_point<std::chrono::high_resolution_clock> m_tStart, m_tNow;
+    Window m_window;
+    Context m_context;
+    FluidRenderer m_fluidRenderer;
+    GUIState m_guiState;
 };
 #endif

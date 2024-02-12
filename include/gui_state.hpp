@@ -11,19 +11,15 @@
 #include <SDL.h>
 #include <SDL_opengl.h>
 
-#include <glm/gtc/type_ptr.hpp>
-
 #include "../include/text_renderer.hpp"
 
 class GUIState{
 public:
     GUIState(unsigned int width, unsigned int height);
-    void frame(unsigned int frameTime);
-    void handleEvents(const SDL_Event& event);
+    bool successfullyInitialised() const;
+    void frame();
 private:
-    unsigned int width, height;
-    void drawLocation();
-    TextRenderer textRen;
+    TextRenderer m_textRen;
 };
 
 #endif

@@ -29,6 +29,7 @@ public:
     FluidRenderer(unsigned int width, unsigned int height);
     void frame(unsigned int frameTime);
     void handleEvents(SDL_Event const& event);
+    bool successfullyInitialised() const { return true;}; /////////////
 private:
     void setUpFluidRenderShaders();
     void setUpFluidSimulationTextures();
@@ -170,9 +171,9 @@ private:
     } boundaryVelocity, boundaryLS, boundaryPressure, clearSlabs;
 
     // Issue: could make these member functions if we make quad static inline (does it need to be const? may have to convert to array)
-    void applySlabOp(SlabOperation slabOp, SQ quantity, unsigned int frameTime, int layerFrom, int layerTo);
-    void applyInnerSlabOp(innerSlabOp slabOp, SQ quantity, unsigned int frameTime);
-    void applyOuterSlabOp(outerSlabOp slabOp, SQ quantity, unsigned int frameTime);
+    void applySlabOp(SlabOperation& slabOp, SQ& quantity, unsigned int frameTime, int layerFrom, int layerTo);
+    void applyInnerSlabOp(innerSlabOp& slabOp, SQ& quantity, unsigned int frameTime);
+    void applyOuterSlabOp(outerSlabOp& slabOp, SQ& quantity, unsigned int frameTime);
 /* 
     struct innerSlabOperation{
         innerSlabOperation(const std::string vertexShaderPath, const std::string fragmentShaderPath) :
