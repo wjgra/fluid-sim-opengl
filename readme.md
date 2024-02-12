@@ -15,7 +15,7 @@ This was a fairly challenging choice for my second OpenGL-based project, not lea
 ### Issues
 As it stands, *FluidRenderer* is a pretty large monolithic class. Whilst it does make use of nested subclasses, I think refactoring it to break it down into smaller components in separate files would be a good exercise.
 
-There is also an issue with odd-even decoupling, which you can see (if you look carefully at the GIF above) as a 16x16 grid of periodic oscillations when the fluid surface is near-flat. This is caused by using collocated grids for the simulation, together with a second-order simulation kernel (which skips every other entry). This error is present in the original Nvidia demo, but it would be nice to eliminate it. There are various solutions 'known to the art', but not all are simple to implement.
+There is also an issue with odd-even decoupling, which you can see (if you look carefully at the GIF above) as a 16x16 grid of periodic oscillations when the fluid surface is near-flat. This is caused by using collocated grids for the simulation, together with a second-order simulation kernel (which skips every other cell). This error is present in the original Nvidia demo, but it would be nice to eliminate it. There are various solutions 'known to the art', but not all are simple to implement.
 
 ## Dependencies and Compilation
 This project uses SDL for window creation and input handling, and OpenGL for rendering. [Glad](https://glad.dav1d.de/) is used for loading OpenGL API functions.
