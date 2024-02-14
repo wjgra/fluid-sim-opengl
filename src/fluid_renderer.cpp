@@ -1,14 +1,148 @@
 #include "../include/fluid_renderer.hpp"
 
-FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
-    screenWidth{width},
-    screenHeight{height},
-    frontCube{width, height},
-    backCube{width, height},
-    backgroundPlaneShader{".//shaders//background_plane.vert", ".//shaders//background_plane.frag"},
-    raycastingPosShader(".//shaders//raycasting_pos.vert", ".//shaders//raycasting_pos.frag"),
-    renderFluidShader(".//shaders//fluid.vert", ".//shaders//fluid.frag"),
-    // Slab operations
+Drawable::Drawable(std::vector<float> const& verts, unsigned int vertexDimension) : vertices{verts}{
+    setUpBuffers(vertexDimension);
+}
+
+Drawable::~Drawable(){
+    releaseBuffers();
+}
+
+// consider ditching these, and having a getVAO fn instead
+void Drawable::bindVAO(){
+    glBindVertexArray(VAO);
+}
+
+/* void Drawable::unbindVAO(){
+    glBindVertexArray(0);
+} */
+
+void Drawable::draw(GLint drawingMode){
+    glDrawArrays(drawingMode, 0, vertices.size());
+}
+
+void Drawable::setUpBuffers(unsigned int vertDim){
+    if (vertDim < 2 || vertDim > 4){
+        throw std::string("Failed to set up buffer object. Vertex dimension must be 2, 3 or 4.\n");
+    }
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glBindVertexArray(VAO); 
+
+    // Bind VBO and copy vertex data into VBO
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    unsigned int stride = vertDim + 2; // Length of vert and UV data    
+    // Verts
+    glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(float), vertices.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, vertDim, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)0);
+    // UVs
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)(vertDim*sizeof(float)));
+
+    glBindVertexArray(0);
+}
+
+void Drawable::releaseBuffers(){
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+}
+
+// Generates a new 3D floating-point texture with the given input as the initial data
+void FluidSimulator::SQ::generateTexture(std::vector<float> data, bool scalarQuantity = false){
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_3D, texture);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    if (!scalarQuantity){
+        glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB32F, gridSize, gridSize, gridSize, 0, GL_RGB, GL_FLOAT, data.data());
+    }
+    else{
+        glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, data.data());
+    }
+    glBindTexture(GL_TEXTURE_3D, 0);
+}
+
+// Generates an array of FBOs for using slab operations to render into the simulated quantity texture
+void FluidSimulator::SQ::generateFBOs(){
+    for (int zSlice = 0; zSlice < gridSize; ++zSlice){
+        glGenFramebuffers(1, &(slabFBOs[zSlice]));
+        glBindFramebuffer(GL_FRAMEBUFFER, slabFBOs[zSlice]);
+        glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, texture, 0, zSlice);
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+                throw std::string("Failed to initialise framebuffer\n");
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+FluidSimulator::SlabOperation::SlabOperation(const std::string vertexShaderPath, const std::string fragmentShaderPath, std::vector<std::string> textureNames) :
+    shader(vertexShaderPath, fragmentShaderPath)
+{   
+    shader.useProgram();
+
+    // Model matrix
+    quadUniforms.modelTrans = shader.getUniformLocation("model");
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::scale(model, glm::vec3(gridSize, gridSize, 1));
+    model = glm::translate(model, glm::vec3(0.0f,0.0f,0.0f));
+    glUniformMatrix4fv(quadUniforms.modelTrans, 1, GL_FALSE, glm::value_ptr(model));
+
+    // Projection matrix
+    glm::mat4 projection = glm::ortho(0.0f, (float)gridSize,  0.0f, (float)gridSize, -1.0f, 1.0f);
+    quadUniforms.projTrans = shader.getUniformLocation("projection");
+    glUniformMatrix4fv(quadUniforms.projTrans, 1, GL_FALSE, glm::value_ptr(projection));
+    
+    for (unsigned int i = 0 ; i < textureNames.size() ; ++i){
+        if (textureNames[i].length() != 0){
+            glUniform1i(shader.getUniformLocation(textureNames[i]), i);
+        }
+    }
+}
+
+FluidSimulator::innerSlabOp::innerSlabOp(const std::string vertexShaderPath, const std::string fragmentShaderPath, std::vector<std::string> textureNames) : 
+    SlabOperation(vertexShaderPath, fragmentShaderPath, textureNames)
+{
+    // Z-Slice and timestep
+    uniformZSlice = shader.getUniformLocation("zSlice");
+    uniformTimeStep = shader.getUniformLocation("timeStep");
+
+};
+
+FluidSimulator::outerSlabOp::outerSlabOp(const std::string vertexShaderPath, const std::string fragmentShaderPath, std::vector<std::string> textureNames) : 
+    SlabOperation(vertexShaderPath, fragmentShaderPath, textureNames)
+{
+    uniformZSlice = shader.getUniformLocation("zSlice");
+
+};
+
+
+// ***Issue: ideally these would be a member of slab op, but then they don't have access to quad!
+void FluidSimulator::applySlabOp(SlabOperation& slabOp, SQ& quantity, unsigned int frameTime, int layerFrom, int layerTo){
+    quad.bindVAO();
+    slabOp.shader.useProgram();
+    glUniform1f(slabOp.uniformTimeStep, (float)frameTime);
+    for (int zSlice = layerFrom; zSlice < layerTo; ++zSlice){
+        glBindFramebuffer(GL_FRAMEBUFFER, quantity.slabFBOs[zSlice]);
+        glUniform1f(slabOp.uniformZSlice, (float)zSlice);
+        quad.draw(GL_TRIANGLES);
+    }
+}
+
+void FluidSimulator::applyInnerSlabOp(innerSlabOp& slabOp, SQ& quantity, unsigned int frameTime){
+    glScissor(1,1,gridSize-2,gridSize-2);
+    applySlabOp(slabOp, quantity, frameTime, 1, gridSize-1);
+}
+
+void FluidSimulator::applyOuterSlabOp(outerSlabOp& slabOp, SQ& quantity, unsigned int frameTime){
+    glScissor(0,0,gridSize,gridSize);
+    //glScissor(0,0,1,gridSize);
+    applySlabOp(slabOp, quantity, frameTime, 0, gridSize);
+}
+
+FluidSimulator::FluidSimulator() : 
     advection(".//shaders//slab_operation.vert", ".//shaders//advect_quantity.frag", {"velocityTexture", "quantityTexture"}),
     advectionVel(".//shaders//slab_operation.vert", ".//shaders//advect_velocity.frag", {"velocityTexture", "quantityTexture"}),
     diffusion(".//shaders//slab_operation.vert", ".//shaders//diffuse_quantity.frag", {"quantityTexture"}),
@@ -23,13 +157,284 @@ FluidRenderer::FluidRenderer(unsigned int width, unsigned int height) :
     boundaryLS(".//shaders//slab_operation.vert", ".//shaders//boundary_levelset.frag", {"levelSetTexture"}),
     boundaryPressure(".//shaders//slab_operation.vert", ".//shaders//boundary_pressure.frag", {"pressureTexture"}),
     clearSlabs(".//shaders//slab_operation.vert", ".//shaders//clear_slabs.frag", {})
-{   
-    setUpFluidRenderShaders();
-    setUpFluidSimulationTextures();
-    setUpFluidSimulationFBOs();
+    
+{
+    try{
+        m_successfullyInitialised = false;
+        initialiseShaders();
+        initialiseTextures();
+        initialiseFramebufferObjects();
+        m_successfullyInitialised = true;
+    }
+    catch (std::exception const& e){
+        std::cerr << "[ERROR]: " << e.what() << "\n";
+        m_successfullyInitialised = false;
+    }
 }
 
-void FluidRenderer::setUpFluidRenderShaders(){
+void FluidSimulator::frame(unsigned int frameTime){
+    integrateFluid(frameTime);
+}
+
+bool FluidSimulator::successfullyInitialised() const {
+    return m_successfullyInitialised;
+}
+
+GLuint FluidSimulator::getCurrentLevelSet() const{
+    return levelSetCurrent.texture;
+}
+
+void FluidSimulator::initialiseShaders(){
+    forceApplication.shader.useProgram();
+    uniformGravityDirection = forceApplication.shader.getUniformLocation("gravityDirection");
+    glUniform1f(uniformGravityDirection, gravityDirection);
+
+    uniformForce = forceApplication.shader.getUniformLocation("extForce");
+    glUniform3f(uniformForce, 0.0f, 0.0f, 0.0f);
+    uniformForcePos = forceApplication.shader.getUniformLocation("extForcePos");
+    glUniform3f(uniformForce, 0.5f, 0.15f, 0.5f);
+}
+
+void FluidSimulator::initialiseTextures(){
+        glActiveTexture(GL_TEXTURE0 + 0);
+        // Level set - initial surface at z = 0.5f
+        // Takes the value of zero on air-water and box-water interfaces
+        // ***Issue: Should be signed distance field, but using 0.5f outside due to pressure issue
+        levelSetData = std::vector<float>(gridSize*gridSize*gridSize, 0.0f);
+        
+        for (int k = 0; k < gridSize; ++k){
+        for (int j = 0 ; j < gridSize; ++j){
+                for (int i = 0; i < gridSize; ++i){
+                    //location of (i,j,k) in texture data
+                    int index = gridSize * gridSize * k + gridSize * j + i;
+                    levelSetData[index] = j - gridSize/2;
+                }
+            }
+        }
+        
+        levelSetCurrent.generateTexture(levelSetData, true);
+        levelSetNext.generateTexture(levelSetData, true);
+
+        // Velocity - initially zero everywhere
+        velocityData = std::vector<float>(4*gridSize*gridSize*gridSize, 0.0f);
+
+        velocityCurrent.generateTexture(velocityData, false);
+        velocityNext.generateTexture(velocityData, false);
+        
+        // Pressure - initially zero 
+        std::vector<float> tempPressureData(gridSize*gridSize*gridSize, 0.0f);
+
+        pressureCurrent.generateTexture(tempPressureData, true); // convert to scalar once tempVectorQuantity separated for vel/pressure
+        pressureNext.generateTexture(tempPressureData, true);
+
+        // Temporary set of buffers for use in Jacobi iteration
+        tempVectorQuantity.generateTexture(velocityData, false);
+        tempScalarQuantity.generateTexture(tempPressureData, true);
+    }
+
+void FluidSimulator::initialiseFramebufferObjects(){
+    levelSetCurrent.generateFBOs();
+    levelSetNext.generateFBOs();
+    velocityCurrent.generateFBOs();
+    velocityNext.generateFBOs();
+    pressureCurrent.generateFBOs();
+    pressureNext.generateFBOs();
+    tempVectorQuantity.generateFBOs();
+    tempScalarQuantity.generateFBOs();
+}
+
+void FluidSimulator::integrateFluid(unsigned int frameTime){
+        if(resetLevelSet){
+            glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
+            glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, levelSetData.data());
+            glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
+            glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB32F, gridSize, gridSize, gridSize, 0, GL_RGB, GL_FLOAT, velocityData.data());
+            resetLevelSet = false;
+        }
+        // Update gravity vector
+        /* if (resetGravity){
+            gravityDirection = 0.0f;
+            resetGravity = false;
+        }
+        else if (gravityRotatingPos){
+            gravityDirection += frameTime * gravityRotSpeed;
+        }
+        else if (gravityRotatingNeg){
+            gravityDirection -= frameTime * gravityRotSpeed;
+        } */
+    
+        glDisable(GL_BLEND);
+        glViewport(0,0,gridSize, gridSize);
+        glEnable(GL_SCISSOR_TEST);
+        
+        // Apply force to velocity
+        glActiveTexture(GL_TEXTURE0 + 0);
+        glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
+        glActiveTexture(GL_TEXTURE0 + 1);
+        glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
+
+        /* advection.shader.useProgram();
+        glUniform1f(uniformGravityDirAdv, gravityDirection);*/
+
+        forceApplication.shader.useProgram();
+        //glUniform3f(uniformGravityDirection, std::sin(gravityDirection), -1.0f * std::cos(gravityDirection), 0.0f);
+
+        if(applyingForce){
+            float squareDistance = std::pow(forceMouseEndX - forceMouseStartX, 2) + std::pow(forceMouseEndY - forceMouseStartY, 2);
+            float mouseAngle = std::atan2(-(forceMouseEndY - forceMouseStartY), forceMouseEndX - forceMouseStartX);
+            float forceSize = std::min(squareDistance, 1000.0f) * 1e-11;
+            glUniform3f(uniformForce, forceSize * std::cos(mouseAngle) * std::cos(horizRot), forceSize * std::sin(mouseAngle), -forceSize * std::cos(mouseAngle) * std::sin(horizRot));
+            forceMouseStartX = forceMouseEndX;
+            forceMouseStartY = forceMouseEndY;
+        }
+        else{
+            glUniform3f(uniformForce, 0.0f, 0.0f, 0.0f);
+        }
+
+        applyInnerSlabOp(forceApplication, velocityNext, frameTime);
+        std::swap(velocityCurrent, velocityNext);
+
+        // Velocity BC
+        glActiveTexture(GL_TEXTURE0 + 0);
+        glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
+        applyOuterSlabOp(boundaryVelocity, velocityNext, frameTime);
+        std::swap(velocityCurrent, velocityNext);
+
+        // Advect Velocity
+        glActiveTexture(GL_TEXTURE0 + 0);
+        glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
+        glActiveTexture(GL_TEXTURE0 + 1);
+        glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
+        applyInnerSlabOp(advectionVel, velocityNext, frameTime);
+
+        // Advect Level Set using old velocity (but with corrected BC)
+        glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
+        applyInnerSlabOp(advection, levelSetNext, frameTime);
+
+        // Put advected velocity in current
+        std::swap(velocityCurrent, velocityNext);
+
+        // Re-bind velocity    
+        glActiveTexture(GL_TEXTURE0 + 0);
+        glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
+
+        // pass through current velocity to temp velocity, which is used as 0th iteration
+        applyInnerSlabOp(passThrough, tempVectorQuantity, frameTime);
+        
+        // Re-bind velocity as quantity to be altered in pos = 2
+        glActiveTexture(GL_TEXTURE0 + 2);
+        glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
+
+        // Diffuse velocity
+        glActiveTexture(GL_TEXTURE0 + 0);
+        for (int i = 0; i < numJacobiIterations; ++i){
+            glBindTexture(GL_TEXTURE_3D, tempVectorQuantity.texture);
+            // Render into next velocity (kth iterate is in temp, k+1th in next)
+            applyInnerSlabOp(diffusion, velocityNext, frameTime);
+            // swap next and temp velocity, then iterate 
+            std::swap(velocityNext, tempVectorQuantity);
+            // Velocity BC - do we need to apply this every iteration?
+            glBindTexture(GL_TEXTURE_3D, tempVectorQuantity.texture);
+            applyOuterSlabOp(boundaryVelocity, velocityNext, frameTime);
+            std::swap(velocityNext, tempVectorQuantity);
+        }
+            
+        std::swap(velocityCurrent, tempVectorQuantity); // Swap final iteration into current velocity
+
+        // *Remove divergence from velocity*
+
+        // Apply velocity BC (must be done to ensure correct divergence at bdries)
+        glActiveTexture(GL_TEXTURE0 + 0);
+        glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
+        applyOuterSlabOp(boundaryVelocity, velocityNext, frameTime);
+        std::swap(velocityCurrent, velocityNext);
+
+        // Compute div of currentVelocity (store in textureVelocityTemp)
+        glActiveTexture(GL_TEXTURE0 + 0);
+        glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
+        applyInnerSlabOp(divergence, tempScalarQuantity, frameTime);
+
+        // Clear pressure texture
+        /*applyOuterSlabOperation(clearSlabs, pressure.textureNext);
+        std::swap(pressure.textureCurrent, pressure.textureNext);*/
+
+
+        // Bindings
+        glActiveTexture(GL_TEXTURE0 + 1);
+        glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
+
+        // Solve Poisson eqn 
+        for (int i = 0; i < numJacobiIterationsPressure; ++i){
+            // Pressure BC
+            glActiveTexture(GL_TEXTURE0 + 0);
+            glBindTexture(GL_TEXTURE_3D, pressureCurrent.texture);
+            applyOuterSlabOp(boundaryPressure, pressureNext, frameTime);
+            std::swap(pressureCurrent, pressureNext);
+
+            // Iteration (kth iteration in current, k+1th in next)
+            glActiveTexture(GL_TEXTURE0 + 0);
+            glBindTexture(GL_TEXTURE_3D, pressureCurrent.texture); // pressure
+            glActiveTexture(GL_TEXTURE0 + 2);
+            glBindTexture(GL_TEXTURE_3D, tempScalarQuantity.texture); // div(velocity)
+            applyInnerSlabOp(pressurePoisson, pressureNext, frameTime);
+            std::swap(pressureCurrent, pressureNext);
+        }
+
+        // Subtract grad(pressure) from currentVelocity
+        glActiveTexture(GL_TEXTURE0 + 0);
+        glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
+        glActiveTexture(GL_TEXTURE0 + 1);
+        glBindTexture(GL_TEXTURE_3D, pressureCurrent.texture);
+        applyInnerSlabOp(removeDivergence, velocityNext, frameTime);
+        std::swap(velocityCurrent, velocityNext);
+
+        //Level set BC
+        std::swap(levelSetCurrent, levelSetNext);
+        glActiveTexture(GL_TEXTURE0 + 0);
+        glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
+        applyOuterSlabOp(boundaryLS, levelSetNext, frameTime);
+        std::swap(levelSetCurrent, levelSetNext);
+
+
+        // Tidy up
+        glDisable(GL_SCISSOR_TEST);
+        // glViewport(0,0,screenWidth,screenHeight); // moved to renderer frame()
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glActiveTexture(GL_TEXTURE0 + 0);
+        glEnable(GL_BLEND);
+    }
+
+NewFluidRenderer::NewFluidRenderer(unsigned int width, unsigned int height) : screenWidth{width}, screenHeight{height},
+    frontCube{width, height},
+    backCube{width, height},
+    backgroundPlaneShader{".//shaders//background_plane.vert", ".//shaders//background_plane.frag"},
+    raycastingPosShader(".//shaders//raycasting_pos.vert", ".//shaders//raycasting_pos.frag"),
+    renderFluidShader(".//shaders//fluid.vert", ".//shaders//fluid.frag")
+{
+    initialiseShaders();
+    setUpSkybox();
+    m_successfullyInitialised = true;
+}
+
+void NewFluidRenderer::frame(unsigned int frameTime, GLuint currentLevelSetTexture){
+    if (cameraRotating){
+        horizRot += frameTime * horizRotSpeed;
+        camera.pos = glm::vec3(glm::rotate(glm::mat4(1.0f), horizRot, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0.0f, 1.5f, 3.0f, 1.0f));
+        camera.updateMatrix();
+    }
+    glDisable(GL_CULL_FACE);
+
+    glViewport(0,0,screenWidth,screenHeight);
+    // Render level set using splines
+    renderBackground();
+    renderFluid(currentLevelSetTexture);
+}
+
+bool NewFluidRenderer::successfullyInitialised() const {
+    return m_successfullyInitialised;
+}
+
+void NewFluidRenderer::initialiseShaders(){
     // Get uniform locations and set values for raycastingPosShader
     raycastingPosShader.useProgram();
     
@@ -106,24 +511,95 @@ void FluidRenderer::setUpFluidRenderShaders(){
     setUpSkybox();
     uniformSkyBoxTexture = renderFluidShader.getUniformLocation("skyBoxTexture");
     glUniform1i(uniformSkyBoxTexture, 5);
-
-    /* advection.shader.useProgram();
-    uniformGravityDirAdv = advection.shader.getUniformLocation("gravityDir"); */
-
-    forceApplication.shader.useProgram();
-    uniformGravityDirection = forceApplication.shader.getUniformLocation("gravityDirection");
-    glUniform1f(uniformGravityDirection, gravityDirection);
-
-    uniformForce = forceApplication.shader.getUniformLocation("extForce");
-    glUniform3f(uniformForce, 0.0f, 0.0f, 0.0f);
-    uniformForcePos = forceApplication.shader.getUniformLocation("extForcePos");
-    glUniform3f(uniformForce, 0.5f, 0.15f, 0.5f);
-
 }
+
+void NewFluidRenderer::renderBackground(){
+    backgroundPlaneShader.useProgram();
+    glUniformMatrix4fv(backgroundPlaneUniforms.viewTrans, 1, GL_FALSE, glm::value_ptr(camera.viewMatrix));
+    backgroundPlane.bindVAO();
+    backgroundPlane.draw(GL_TRIANGLES);
+}
+
+void NewFluidRenderer::renderFluid(GLuint currentLevelSetTexture){
+        // Coordinates of entry/exit points of camera ray through the cube are rendered as RGB values to texture
+        raycastingPosShader.useProgram();
+        glUniformMatrix4fv(raycastingPosUniforms.viewTrans, 1, GL_FALSE, glm::value_ptr(camera.viewMatrix));
+        // Draw front of cube (cull back faces) in RGB to texture
+        glBindFramebuffer(GL_FRAMEBUFFER, frontCube.FBO);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        cube.bindVAO();
+        cube.draw(GL_TRIANGLES);
+
+        // Draw back of cube (cull front faces) in RGB to texture
+        glBindFramebuffer(GL_FRAMEBUFFER, backCube.FBO);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        //glEnable(GL_CULL_FACE);
+        glCullFace(GL_FRONT);
+        cube.draw(GL_TRIANGLES);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glDisable(GL_CULL_FACE); 
+        
+        // Render fluid by marching using front/back RGB values as entry/exit point coordinates
+        renderFluidShader.useProgram();
+        glActiveTexture(GL_TEXTURE0 + 0);
+        glBindTexture(GL_TEXTURE_2D, frontCube.texture.getLocation());
+        glActiveTexture(GL_TEXTURE0 + 1);
+        glBindTexture(GL_TEXTURE_2D, backCube.texture.getLocation());
+        glActiveTexture(GL_TEXTURE0 + 2);
+        glBindTexture(GL_TEXTURE_3D, currentLevelSetTexture);
+        glActiveTexture(GL_TEXTURE0 + 3);
+        glBindTexture(GL_TEXTURE_1D, splineTexture);
+        glActiveTexture(GL_TEXTURE0 + 4);
+        glBindTexture(GL_TEXTURE_1D, splineDerivTexture);
+        glActiveTexture(GL_TEXTURE0 + 5);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, skyBoxTexture);
+        quad.bindVAO();
+        quad.draw(GL_TRIANGLES);
+
+        // Tidy up texture bindings
+        glActiveTexture(GL_TEXTURE0 + 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE0 + 1);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE0 + 2);
+        glBindTexture(GL_TEXTURE_3D, 0);
+        glActiveTexture(GL_TEXTURE0 + 0);
+    }
+
+// Using scissor and six slab op commands to draw bdry was actually slower!
+void NewFluidRenderer::setUpSkybox(){
+    glGenTextures(1, &skyBoxTexture);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skyBoxTexture);
+    int w, h, components;
+    for (unsigned int i = 0 ; i < skyBoxPaths.size() ; ++i){
+        //stbi_set_flip_vertically_on_load(true); 
+        unsigned char * data = stbi_load(skyBoxPaths[i].c_str(), &w, &h, &components, 0);
+        //stbi_set_flip_vertically_on_load(false); 
+        if (data){
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+            stbi_image_free(data);
+        }
+        else{
+            stbi_image_free(data);
+            throw std::string("Failed to load cubemap texture at " + skyBoxPaths[i]);
+        }
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+}
+
 
 // Populate a 1D texture with cubic interpolation coefficients/offsets
 // RGBA: (g0, g1, h0, h1), where f(x) = g0 * f(i - h0) + g1 * f(i + h1), where i = floor(x)
-void FluidRenderer::setUpSplines(){
+void NewFluidRenderer::setUpSplines(){
     // For interpolating values
     auto w0 = [](float a){return (-a * a * a + 3 * a * a - 3 * a + 1) / 6.0f;};
     auto w1 = [](float a){return (3 * a * a * a - 6 * a * a + 4) / 6.0f;};
@@ -168,384 +644,60 @@ void FluidRenderer::setUpSplines(){
     glBindTexture(GL_TEXTURE_1D, 0);
 }
 
-// Generate 3D textures and set initial values for all simulated quantities
-void FluidRenderer::setUpFluidSimulationTextures(){    
-    glActiveTexture(GL_TEXTURE0 + 0);
+void NewFluidRenderer::Camera::updateMatrix(){
+    glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+    viewMatrix = glm::lookAt(pos, target, up);
+}
 
-    // Level set - initial surface at z = 0.5f
-    // Takes the value of zero on air-water and box-water interfaces
-    // ***Issue: Should be signed distance field, but using 0.5f outside due to pressure issue
-    levelSetData = std::vector<float>(gridSize*gridSize*gridSize, 0.0f);
-    
-    for (int k = 0; k < gridSize; ++k){
-       for (int j = 0 ; j < gridSize; ++j){
-            for (int i = 0; i < gridSize; ++i){
-                //location of (i,j,k) in texture data
-                int index = gridSize * gridSize * k + gridSize * j + i;
-                
-                levelSetData[index] = j - gridSize/2;
-                
-                /* // bottom layer is just outside fluid
-                if ( j == 0){
-                    levelSetData[index] = 0.5f;// Must be 0.5 so = 0 on bdry
-                }
+NewFluidRenderer::RenderTarget::RenderTarget(unsigned int width, unsigned int height) : texture{width, height} {
+    setUpBuffers();
+};
 
-                // top 'half' decrements to 0.5 in j=gridSize/2 + 1 layer
-                else if (j > gridSize/2){
-                    levelSetData[index] = 0.5f; //same everywhere outside?
-                    //levelSetData[index] = j - gridSize/2 - 0.5f;
-                }
+NewFluidRenderer::RenderTarget::~RenderTarget(){
+    releaseBuffers();
+}
 
-                // bottom 'half': j in [1,gridSize/2] 0.5f around outside, then -0.5f (to ensure 0 on bdry), then decrement inwards
-                else{
-                    if (i == 0 || k == 0 || i == gridSize-1 || k == gridSize-1){//edges
-                        levelSetData[index] = 0.5f;
-                    }
-                    else{// Manhattan distance to edge
+void NewFluidRenderer::RenderTarget::setUpBuffers(){
+    glGenFramebuffers(1, &FBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture.getLocation(), 0);
 
-                        int tempDist = std::min(i-1, gridSize-2-i);
-                        tempDist = std::min(tempDist, std::min(k-1, gridSize-2-k));
-                        tempDist = std::min(tempDist, j-1);
-                        tempDist = std::min(tempDist, gridSize/2-j);
+    // Check complete
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        throw std::string("Failed to initialise framebuffer");
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
 
-                        tempDist += 0.5f;// Bdry condition correction
-                        levelSetData[index] = -tempDist;
-                    }
-                } */
-            }
+void NewFluidRenderer::RenderTarget::releaseBuffers(){
+    glDeleteFramebuffers(1, &FBO);
+}
+
+Fluid::Fluid(unsigned int w, unsigned int h) : m_simulator{}, m_renderer(w, h)
+{   
+    try{
+        if (!m_simulator.successfullyInitialised()){
+            throw std::runtime_error("Failed to create FluidController: must pass a valid simulator instance");
         }
+        if (!m_renderer.successfullyInitialised()){
+            throw std::runtime_error("Failed to create FluidController: must pass a valid renderer instance");
+        }
+        m_successfullyInitialised = true;
     }
-    
-    levelSetCurrent.generateTexture(levelSetData, true);
-    levelSetNext.generateTexture(levelSetData, true);
-
-    // Velocity - initially zero everywhere
-    velocityData = std::vector<float>(4*gridSize*gridSize*gridSize, 0.0f);
-
-    velocityCurrent.generateTexture(velocityData, false);
-    velocityNext.generateTexture(velocityData, false);
-    
-    // Pressure - initially zero 
-    std::vector<float> tempPressureData(gridSize*gridSize*gridSize, 0.0f);
-
-    pressureCurrent.generateTexture(tempPressureData, true); // convert to scalar once tempVectorQuantity separated for vel/pressure
-    pressureNext.generateTexture(tempPressureData, true);
-
-    // Temporary set of buffers for use in Jacobi iteration
-    tempVectorQuantity.generateTexture(velocityData, false);
-    tempScalarQuantity.generateTexture(tempPressureData, true);
-    
-}
-
-// Generates a new 3D floating-point texture with the given input as the initial data
-void FluidRenderer::SQ::generateTexture(std::vector<float> data, bool scalarQuantity = false){
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_3D, texture);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    if (!scalarQuantity){
-        glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB32F, gridSize, gridSize, gridSize, 0, GL_RGB, GL_FLOAT, data.data());
-    }
-    else{
-        glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, data.data());
-    }
-    glBindTexture(GL_TEXTURE_3D, 0);
-}
-
-// Generate FBOs for each simulated quantity for use with slab operations
-void FluidRenderer::setUpFluidSimulationFBOs(){
-    levelSetCurrent.generateFBOs();
-    levelSetNext.generateFBOs();
-    velocityCurrent.generateFBOs();
-    velocityNext.generateFBOs();
-    pressureCurrent.generateFBOs();
-    pressureNext.generateFBOs();
-    tempVectorQuantity.generateFBOs();
-    tempScalarQuantity.generateFBOs();
-}
-
-// Generates an array of FBOs for using slab operations to render into the simulated quantity texture
-void FluidRenderer::SQ::generateFBOs(){
-    for (int zSlice = 0; zSlice < gridSize; ++zSlice){
-        glGenFramebuffers(1, &(slabFBOs[zSlice]));
-        glBindFramebuffer(GL_FRAMEBUFFER, slabFBOs[zSlice]);
-        glFramebufferTexture3D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_3D, texture, 0, zSlice);
-        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-                throw std::string("Failed to initialise framebuffer\n");
-    }
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-void FluidRenderer::frame(unsigned int frameTime){
-    auto t0 = std::chrono::high_resolution_clock::now();
-    // ***Refactor: Update camera
-    if (cameraRotating){
-        horizRot += frameTime * horizRotSpeed;
-        camera.pos = glm::vec3(glm::rotate(glm::mat4(1.0f), horizRot, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(0.0f, 1.5f, 3.0f, 1.0f));
-        camera.updateMatrix();
-    }
-    
-    glDisable(GL_CULL_FACE); // is this needed????
-
-    auto t1 = std::chrono::high_resolution_clock::now();
-    initTime += std::chrono::duration_cast<std::chrono::microseconds>(t1-t0).count();
-    renderBackground();
-    auto t2 = std::chrono::high_resolution_clock::now();
-    bgTime += std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
-    integrateFluid(frameTime);
-    auto t3 = std::chrono::high_resolution_clock::now();
-    intTime += std::chrono::duration_cast<std::chrono::microseconds>(t3-t2).count();
-    renderFluid();
-    auto t4 = std::chrono::high_resolution_clock::now();
-    renTime += std::chrono::duration_cast<std::chrono::microseconds>(t4-t3).count();
-    ++frameNo;
-    if (frameNo == 100){
-        frameNo = 0;
-        //std::cout << "Init: " << 0.01f * initTime << " Bg: " << 0.01f * bgTime << " Int: " << 0.01f * intTime << " Ren: " << 0.01f * renTime << "\n";
-        initTime = 0; bgTime = 0; intTime = 0; renTime = 0;
+    catch (std::exception const& e){
+        std::cerr << "[ERROR]: " << e.what() << "\n";
+        m_successfullyInitialised = false;
     }
 }
 
-// Renders a patterned plane below the fluid using the current camera viewpoint
-void FluidRenderer::renderBackground(){
-    backgroundPlaneShader.useProgram();
-    glUniformMatrix4fv(backgroundPlaneUniforms.viewTrans, 1, GL_FALSE, glm::value_ptr(camera.viewMatrix));
-    backgroundPlane.bindVAO();
-    backgroundPlane.draw(GL_TRIANGLES);
+bool Fluid::successfullyInitialised() const{
+    return m_successfullyInitialised;
 }
 
-// 
-void FluidRenderer::integrateFluid(unsigned int frameTime){
-    if(resetLevelSet){
-        glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
-        glTexImage3D(GL_TEXTURE_3D, 0, GL_R32F, gridSize, gridSize, gridSize, 0, GL_RED, GL_FLOAT, levelSetData.data());
-        glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-        glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB32F, gridSize, gridSize, gridSize, 0, GL_RGB, GL_FLOAT, velocityData.data());
-        resetLevelSet = false;
-    }
-    // Update gravity vector
-    /* if (resetGravity){
-        gravityDirection = 0.0f;
-        resetGravity = false;
-    }
-    else if (gravityRotatingPos){
-        gravityDirection += frameTime * gravityRotSpeed;
-    }
-    else if (gravityRotatingNeg){
-        gravityDirection -= frameTime * gravityRotSpeed;
-    } */
-   
-    glDisable(GL_BLEND);
-    glViewport(0,0,gridSize, gridSize);
-    glEnable(GL_SCISSOR_TEST);
-    
-    // Apply force to velocity
-    glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-    glActiveTexture(GL_TEXTURE0 + 1);
-    glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
-
-    /* advection.shader.useProgram();
-    glUniform1f(uniformGravityDirAdv, gravityDirection);*/
-
-    forceApplication.shader.useProgram();
-    //glUniform3f(uniformGravityDirection, std::sin(gravityDirection), -1.0f * std::cos(gravityDirection), 0.0f);
-
-    if(applyingForce){
-        float squareDistance = std::pow(forceMouseEndX - forceMouseStartX, 2) + std::pow(forceMouseEndY - forceMouseStartY, 2);
-        float mouseAngle = std::atan2(-(forceMouseEndY - forceMouseStartY), forceMouseEndX - forceMouseStartX);
-        float forceSize = std::min(squareDistance, 1000.0f) * 1e-11;
-        glUniform3f(uniformForce, forceSize * std::cos(mouseAngle) * std::cos(horizRot), forceSize * std::sin(mouseAngle), -forceSize * std::cos(mouseAngle) * std::sin(horizRot));
-        forceMouseStartX = forceMouseEndX;
-        forceMouseStartY = forceMouseEndY;
-    }
-    else{
-        glUniform3f(uniformForce, 0.0f, 0.0f, 0.0f);
-    }
-
-    applyInnerSlabOp(forceApplication, velocityNext, frameTime);
-    std::swap(velocityCurrent, velocityNext);
-
-    // Velocity BC
-    glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-    applyOuterSlabOp(boundaryVelocity, velocityNext, frameTime);
-    std::swap(velocityCurrent, velocityNext);
-
-    // Advect Velocity
-    glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-    glActiveTexture(GL_TEXTURE0 + 1);
-    glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-    applyInnerSlabOp(advectionVel, velocityNext, frameTime);
-
-    // Advect Level Set using old velocity (but with corrected BC)
-    glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
-    applyInnerSlabOp(advection, levelSetNext, frameTime);
-
-    // Put advected velocity in current
-    std::swap(velocityCurrent, velocityNext);
-
-    // Re-bind velocity    
-    glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-
-    // pass through current velocity to temp velocity, which is used as 0th iteration
-    applyInnerSlabOp(passThrough, tempVectorQuantity, frameTime);
-    
-    // Re-bind velocity as quantity to be altered in pos = 2
-    glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-
-    // Diffuse velocity
-    glActiveTexture(GL_TEXTURE0 + 0);
-    for (int i = 0; i < numJacobiIterations; ++i){
-        glBindTexture(GL_TEXTURE_3D, tempVectorQuantity.texture);
-        // Render into next velocity (kth iterate is in temp, k+1th in next)
-        applyInnerSlabOp(diffusion, velocityNext, frameTime);
-        // swap next and temp velocity, then iterate 
-        std::swap(velocityNext, tempVectorQuantity);
-        // Velocity BC - do we need to apply this every iteration?
-        glBindTexture(GL_TEXTURE_3D, tempVectorQuantity.texture);
-        applyOuterSlabOp(boundaryVelocity, velocityNext, frameTime);
-        std::swap(velocityNext, tempVectorQuantity);
-    }
-        
-    std::swap(velocityCurrent, tempVectorQuantity); // Swap final iteration into current velocity
-
-    // *Remove divergence from velocity*
-
-    // Apply velocity BC (must be done to ensure correct divergence at bdries)
-    glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-    applyOuterSlabOp(boundaryVelocity, velocityNext, frameTime);
-    std::swap(velocityCurrent, velocityNext);
-
-    // Compute div of currentVelocity (store in textureVelocityTemp)
-    glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-    applyInnerSlabOp(divergence, tempScalarQuantity, frameTime);
-
-    // Clear pressure texture
-    /*applyOuterSlabOperation(clearSlabs, pressure.textureNext);
-    std::swap(pressure.textureCurrent, pressure.textureNext);*/
-
-
-    // Bindings
-    glActiveTexture(GL_TEXTURE0 + 1);
-    glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
-
-    // Solve Poisson eqn 
-    for (int i = 0; i < numJacobiIterationsPressure; ++i){
-        // Pressure BC
-        glActiveTexture(GL_TEXTURE0 + 0);
-        glBindTexture(GL_TEXTURE_3D, pressureCurrent.texture);
-        applyOuterSlabOp(boundaryPressure, pressureNext, frameTime);
-        std::swap(pressureCurrent, pressureNext);
-
-        // Iteration (kth iteration in current, k+1th in next)
-        glActiveTexture(GL_TEXTURE0 + 0);
-        glBindTexture(GL_TEXTURE_3D, pressureCurrent.texture); // pressure
-         glActiveTexture(GL_TEXTURE0 + 2);
-        glBindTexture(GL_TEXTURE_3D, tempScalarQuantity.texture); // div(velocity)
-        applyInnerSlabOp(pressurePoisson, pressureNext, frameTime);
-        std::swap(pressureCurrent, pressureNext);
-    }
-
-    // Subtract grad(pressure) from currentVelocity
-    glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_3D, velocityCurrent.texture);
-    glActiveTexture(GL_TEXTURE0 + 1);
-    glBindTexture(GL_TEXTURE_3D, pressureCurrent.texture);
-    applyInnerSlabOp(removeDivergence, velocityNext, frameTime);
-    std::swap(velocityCurrent, velocityNext);
-
-    //Level set BC
-    std::swap(levelSetCurrent, levelSetNext);
-    glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
-    applyOuterSlabOp(boundaryLS, levelSetNext, frameTime);
-    std::swap(levelSetCurrent, levelSetNext);
-
-
-    // Tidy up
-    glDisable(GL_SCISSOR_TEST);
-    glViewport(0,0,screenWidth,screenHeight);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glActiveTexture(GL_TEXTURE0 + 0);
-    
-    glEnable(GL_BLEND);
-}
-
-// Renders levelSetCurrent by marching through the volume
-void FluidRenderer::renderFluid(){
-    // Coordinates of entry/exit points of camera ray through the cube are rendered as RGB values to texture
-    raycastingPosShader.useProgram();
-    glUniformMatrix4fv(raycastingPosUniforms.viewTrans, 1, GL_FALSE, glm::value_ptr(camera.viewMatrix));
-    // Draw front of cube (cull back faces) in RGB to texture
-    glBindFramebuffer(GL_FRAMEBUFFER, frontCube.FBO);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    cube.bindVAO();
-    cube.draw(GL_TRIANGLES);
-
-    // Draw back of cube (cull front faces) in RGB to texture
-    glBindFramebuffer(GL_FRAMEBUFFER, backCube.FBO);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    //glEnable(GL_CULL_FACE);
-    glCullFace(GL_FRONT);
-    cube.draw(GL_TRIANGLES);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glDisable(GL_CULL_FACE); 
-    
-    // Render fluid by marching using front/back RGB values as entry/exit point coordinates
-    renderFluidShader.useProgram();
-    glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_2D, frontCube.texture.getLocation());
-    glActiveTexture(GL_TEXTURE0 + 1);
-    glBindTexture(GL_TEXTURE_2D, backCube.texture.getLocation());
-    glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_3D, levelSetCurrent.texture);
-    glActiveTexture(GL_TEXTURE0 + 3);
-    glBindTexture(GL_TEXTURE_1D, splineTexture);
-    glActiveTexture(GL_TEXTURE0 + 4);
-    glBindTexture(GL_TEXTURE_1D, splineDerivTexture);
-    glActiveTexture(GL_TEXTURE0 + 5);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, skyBoxTexture);
-    quad.bindVAO();
-    quad.draw(GL_TRIANGLES);
-
-    // Tidy up texture bindings
-    glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glActiveTexture(GL_TEXTURE0 + 1);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_3D, 0);
-    glActiveTexture(GL_TEXTURE0 + 0);
-
-}
-
-void FluidRenderer::handleEvents(SDL_Event const& event){
-   switch(event.type){
+void Fluid::handleEvents(SDL_Event const& event){
+    // need to add links between modules to enable controls
+/*         switch(event.type){
         case SDL_KEYDOWN:
             switch(event.key.keysym.scancode){
-                /* case SDL_SCANCODE_UP:
-                    gravityRotatingPos = true;
-                break;
-                case SDL_SCANCODE_DOWN:
-                    gravityRotatingNeg = true;
-                break;
-                case SDL_SCANCODE_G:
-                    resetGravity = true;
-                    break; */
                 case SDL_SCANCODE_R:
                     resetLevelSet = true;
                     break;
@@ -555,11 +707,6 @@ void FluidRenderer::handleEvents(SDL_Event const& event){
             break;
         case SDL_KEYUP:
             switch(event.key.keysym.scancode){
-                /* case SDL_SCANCODE_UP:
-                    gravityRotatingPos = false;
-                break;
-                case SDL_SCANCODE_DOWN:
-                    gravityRotatingNeg = false; */
                 break;
                 case SDL_SCANCODE_SPACE:
                     cameraRotating = !cameraRotating;
@@ -582,143 +729,10 @@ void FluidRenderer::handleEvents(SDL_Event const& event){
             break;
         default:
         break;
-    }
+    } */
 }
 
-FluidRenderer::Drawable::Drawable(std::vector<float> const& verts, unsigned int vertexDimension) : 
-    vertices{verts}
-{
-    setUpBuffers(vertexDimension);
-}
-
-FluidRenderer::Drawable::~Drawable(){
-    releaseBuffers();
-}
-
-// Generates VAO and VBO for Drawable object and copies vertex/UV data into VBO
-// vertDim = dimension of vertex data (used for calculating stride)
-void FluidRenderer::Drawable::setUpBuffers(unsigned int vertDim){
-    if (vertDim < 2 || vertDim > 4){
-        throw std::string("Failed to set up buffer object. Vertex dimension must be 2, 3 or 4.\n");
-    }
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glBindVertexArray(VAO); 
-
-    // Bind VBO and copy vertex data into VBO
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    unsigned int stride = vertDim + 2; // Length of vert and UV data    
-    // Verts
-    glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(float), vertices.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, vertDim, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)0);
-    // UVs
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)(vertDim*sizeof(float)));
-
-    glBindVertexArray(0);
-}
-
-void FluidRenderer::Drawable::releaseBuffers(){
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-}
-
-void FluidRenderer::Drawable::bindVAO(){
-    glBindVertexArray(VAO);
-}
-
-void FluidRenderer::Drawable::unbindVAO(){
-    glBindVertexArray(0);
-}
-
-void FluidRenderer::Drawable::draw(GLint drawingMode){
-    glDrawArrays(drawingMode, 0, vertices.size());
-}
-
-void FluidRenderer::RenderTarget::setUpBuffers(){
-    glGenFramebuffers(1, &FBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture.getLocation(), 0);
-
-    // Check complete
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        throw std::string("Failed to initialise framebuffer");
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-void FluidRenderer::RenderTarget::releaseBuffers(){
-    glDeleteFramebuffers(1, &FBO);
-}
-
-FluidRenderer::SlabOperation::SlabOperation(const std::string vertexShaderPath, const std::string fragmentShaderPath, std::vector<std::string> textureNames) :
-    shader(vertexShaderPath, fragmentShaderPath)
-{   
-    shader.useProgram();
-
-    // Model matrix
-    quadUniforms.modelTrans = shader.getUniformLocation("model");
-    glm::mat4 model = glm::mat4(1.0f);
-    model = glm::scale(model, glm::vec3(gridSize, gridSize, 1));
-    model = glm::translate(model, glm::vec3(0.0f,0.0f,0.0f));
-    glUniformMatrix4fv(quadUniforms.modelTrans, 1, GL_FALSE, glm::value_ptr(model));
-
-    // Projection matrix
-    glm::mat4 projection = glm::ortho(0.0f, (float)gridSize,  0.0f, (float)gridSize, -1.0f, 1.0f);
-    quadUniforms.projTrans = shader.getUniformLocation("projection");
-    glUniformMatrix4fv(quadUniforms.projTrans, 1, GL_FALSE, glm::value_ptr(projection));
-    
-    for (unsigned int i = 0 ; i < textureNames.size() ; ++i){
-        if (textureNames[i].length() != 0){
-            glUniform1i(shader.getUniformLocation(textureNames[i]), i);
-        }
-    }
-}
-
-// ***Issue: ideally these would be a member of slab op, but then they don't have access to quad!
-void FluidRenderer::applySlabOp(SlabOperation& slabOp, SQ& quantity, unsigned int frameTime, int layerFrom, int layerTo){
-    quad.bindVAO();
-    slabOp.shader.useProgram();
-    glUniform1f(slabOp.uniformTimeStep, (float)frameTime);
-    for (int zSlice = layerFrom; zSlice < layerTo; ++zSlice){
-        glBindFramebuffer(GL_FRAMEBUFFER, quantity.slabFBOs[zSlice]);
-        glUniform1f(slabOp.uniformZSlice, (float)zSlice);
-        quad.draw(GL_TRIANGLES);
-    }
-}
-
-void FluidRenderer::applyInnerSlabOp(innerSlabOp& slabOp, SQ& quantity, unsigned int frameTime){
-    glScissor(1,1,gridSize-2,gridSize-2);
-    applySlabOp(slabOp, quantity, frameTime, 1, gridSize-1);
-}
-
-void FluidRenderer::applyOuterSlabOp(outerSlabOp& slabOp, SQ& quantity, unsigned int frameTime){
-    glScissor(0,0,gridSize,gridSize);
-    //glScissor(0,0,1,gridSize);
-    applySlabOp(slabOp, quantity, frameTime, 0, gridSize);
-}
-
-// Using scissor and six slab op commands to draw bdry was actually slower!
-void FluidRenderer::setUpSkybox(){
-    glGenTextures(1, &skyBoxTexture);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, skyBoxTexture);
-    int w, h, components;
-    for (unsigned int i = 0 ; i < skyBoxPaths.size() ; ++i){
-        //stbi_set_flip_vertically_on_load(true); 
-        unsigned char * data = stbi_load(skyBoxPaths[i].c_str(), &w, &h, &components, 0);
-        //stbi_set_flip_vertically_on_load(false); 
-        if (data){
-            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-            stbi_image_free(data);
-        }
-        else{
-            stbi_image_free(data);
-            throw std::string("Failed to load cubemap texture at " + skyBoxPaths[i]);
-        }
-    }
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+void Fluid::frame(unsigned int frameTime){
+    m_simulator.frame(frameTime);
+    m_renderer.frame(frameTime, m_simulator.getCurrentLevelSet());
 }

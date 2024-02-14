@@ -8,6 +8,7 @@
 #include "../include/glad/glad.h"
 #endif
 
+#include <stdexcept>
 #include <iostream>
 #include <SDL.h>
 #include <SDL_opengl.h>

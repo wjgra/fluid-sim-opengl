@@ -5,7 +5,7 @@ Context::Context(SDL_Window* window, unsigned int width, unsigned int height) : 
         // Create OpenGL context
         context = SDL_GL_CreateContext(window);
         if (!context){
-            throw "Failed to create OpenGL context";
+            throw std::runtime_error("Failed to create OpenGL context");
         }
         std::cout << "OpenGL loaded\n";
         

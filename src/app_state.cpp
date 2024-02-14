@@ -7,7 +7,7 @@ AppState::AppState(unsigned int w, unsigned int h, unsigned int scale) :
     m_quitApplication{false},
     m_window(m_notionalWindowWidth * m_windowDisplayScale, m_notionalWindowHeight * m_windowDisplayScale), 
     m_context(m_window.getWindow(), m_notionalWindowWidth* m_windowDisplayScale, m_notionalWindowHeight * m_windowDisplayScale),
-    m_fluidRenderer(m_notionalWindowWidth * m_windowDisplayScale, m_notionalWindowHeight * m_windowDisplayScale),
+    m_fluid(m_notionalWindowWidth * m_windowDisplayScale, m_notionalWindowHeight * m_windowDisplayScale),
     m_guiState(m_notionalWindowWidth, m_notionalWindowHeight)
 {
 }
@@ -15,7 +15,7 @@ AppState::AppState(unsigned int w, unsigned int h, unsigned int scale) :
 bool AppState::successfullyInitialised() const{
     bool success = m_window.successfullyInitialised();
     success &= m_context.successfullyInitialised();
-    success &= m_fluidRenderer.successfullyInitialised();
+    success &= m_fluid.successfullyInitialised();
     success &= m_guiState.successfullyInitialised();
     return success;
 }
@@ -58,15 +58,13 @@ void AppState::handleEvents(SDL_Event const&  event){
         default:
             break;
     }
-    m_fluidRenderer.handleEvents(event);
-
+    m_fluid.handleEvents(event);
 }
 
 void AppState::frame(unsigned int frameTime){
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    m_fluidRenderer.frame(frameTime);
-    glDisable(GL_DEPTH_TEST);
+    m_fluid.frame(frameTime);
     m_guiState.frame();
     SDL_GL_SwapWindow(m_window.getWindow());
     m_window.frame(frameTime);

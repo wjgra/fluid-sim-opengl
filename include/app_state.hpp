@@ -41,7 +41,11 @@ private:
     std::chrono::time_point<std::chrono::high_resolution_clock> m_tStart, m_tNow;
     Window m_window;
     Context m_context;
+    Fluid m_fluid;
+    /* FluidSimulator m_fluidSimulator;
     FluidRenderer m_fluidRenderer;
+    NewFluidRenderer m_newFluidRenderer;
+    FluidController m_fluidController; */
     GUIState m_guiState;
 };
 #endif

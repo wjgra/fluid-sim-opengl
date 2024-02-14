@@ -10,6 +10,8 @@ Essentially, this is my version of the [Nvidia 'Box of Smoke' demo](https://www.
 
 This was a fairly challenging choice for my second OpenGL-based project, not least because OpenGL is very good at crashing for seemingly no reason. However, the final results were pretty satisying and I'm please I persisted. Performance is 'good enough' (40-50 FPS on my laptop), allowing for real-time interaction with the mouse, but frequently switching renderbuffers to render to the texture slices seems to be the bottleneck. As such, if I were to write another GPU fluid renderer, I would probably use compute shaders or CUDA/OpenCL instead.
 
+The window, context, app, shader program, texture, text rendering and GUI classes are re-used (with modification) from [wjgra/asteroids-opengl](https://github.com/wjgra/asteroids-opengl).
+
 [RenderDoc](https://renderdoc.org/) was helpful for profiling.
 
 ### Issues
