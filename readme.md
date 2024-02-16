@@ -10,6 +10,8 @@ Essentially, this is my version of the [Nvidia 'Box of Smoke' demo](https://www.
 
 This was a fairly challenging choice for my second OpenGL-based project, not least because OpenGL is very good at crashing for seemingly no reason. However, the final results were pretty satisfying and I'm pleased I persisted. Performance is 'good enough' (40-50 FPS on my laptop), allowing for real-time interaction with the mouse, but frequently switching renderbuffers to render to the texture slices seems to bottleneck the speed. As such, if I were to write another GPU fluid renderer, I would probably use compute shaders or CUDA/OpenCL instead.
 
+The window, context, app, shader program, texture, text rendering and GUI classes are re-used (with modification) from [wjgra/asteroids-opengl](https://github.com/wjgra/asteroids-opengl).
+
 [RenderDoc](https://renderdoc.org/) was helpful for profiling.
 
 ### Issues
@@ -23,6 +25,6 @@ This project uses SDL for window creation and input handling, and OpenGL for ren
 Sample GCC compilation command
 
 ```
-g++ src\*.cpp src\*.c -o fluid.exe -W -Wall -Wextra -pedantic -I "C:\SDL-release-2.26.4\include" -lopengl32 -lglu32 -pthread "SDL2.dll" -O3 -DNDEBUG
+g++ src\*.cpp src\*.c -o fluid.exe -W -Wall -Wextra -pedantic -I "C:\w64devkit\include" -I "C:\SDL-release-2.26.4\include" -I "include" -lopengl32 -lglu32 -pthread "SDL2.dll" -O3 -DNDEBUG
 ```
 I am yet to port this project to Emscripten. I believe there are issues with rendering to scalar (i.e. non-RGB) textures in OpenGL ES 2.0 (which is used by Emscripten). Since this is used extensively in this project to improve performance, porting could be tricky. It would be good to investigate this in more detail at some point.

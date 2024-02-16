@@ -8,7 +8,7 @@
 #include <GL/gl.h>
 #include <GLES3/gl3.h>
 #else
-#include "../include/glad/glad.h"
+#include "glad/glad.h"
 #endif
 
 #include <iostream>
@@ -18,39 +18,42 @@
 #define GLM_FORCE_PURE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-
-#include "../include/texture.hpp"
-#include "../include/shader_program.hpp"
 #include <glm/gtc/type_ptr.hpp>
+
+#include "texture.hpp"
+#include "shader_program.hpp"
 
 class TextRenderer{
 public:
-    TextRenderer();
+    TextRenderer(unsigned int w, unsigned int h);
+    TextRenderer(TextRenderer const&) = delete;
+    TextRenderer(TextRenderer const&&) = delete;
+    TextRenderer& operator=(TextRenderer const&) = delete;
+    TextRenderer& operator=(TextRenderer const&&) = delete;
     ~TextRenderer();
+private:
     void setUpBuffers();
     void releaseBuffers();
-    //void draw();
-    void setChar(char toDraw);
-    void setPosition(float scale, float xPos, float yPos);
-    void drawString(std::string toDraw, float scale, float xPos, float yPos);
-    void drawStringCentred(std::string toDraw, float scale, float xPos, float yPos);
-    ShaderProgram shader;
-    Texture texture;
-
-    std::vector<float> const vertices {
+    void setChar(char toDraw) const;
+    void setPosition(float scale, float xPos, float yPos) const;
+public:
+    bool successfullyInitialised() const;
+    void drawString(std::string const& toDraw, float scale, float xPos, float yPos) const;
+    void drawStringCentred(std::string const& toDraw, float scale, float xPos, float yPos) const;
+private:
+    ShaderProgram m_shader;
+    Texture m_texture;
+    bool m_successfullyInitialised = false;
+    std::vector<float> const m_quadVertexData {
         1.0f, 0.0f,   0.125f, 0.0f,   
         1.0f, 1.0f,   0.125f, 0.125f,   
         0.0f, 0.0f,   0.0f, 0.0f,   
         0.0f, 1.0f,   0.0f, 0.125f  
-
     };
+    std::vector<GLuint> const m_quadElementData {0, 1, 2, 3};
+    GLuint m_VBO, m_EBO, m_VAO;
 
-    std::vector<GLuint> const elements {0, 1, 2, 3};
-    GLuint VBO, EBO, VAO;
-    GLint drawingMode = GL_TRIANGLE_STRIP;
-
-    GLint uniformModelTrans, uniformProjTrans, uniformTextureCoordOffset;
-
+    GLint m_uniformModelTrans, m_uniformProjTrans, m_uniformTextureCoordOffset;
 };
 
 #endif

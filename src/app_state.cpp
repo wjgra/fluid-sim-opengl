@@ -1,35 +1,43 @@
-#include "../include/app_state.hpp"
+#include "app_state.hpp"
 
-AppState::AppState(unsigned int scale) : 
-    winScale{scale},
-    window(winWidth*winScale, winHeight*winScale), 
-    context(window.getWindow(), winWidth*winScale, winHeight*winScale),
-    guiState(winWidth*winScale, winHeight*winScale),
-    fluidRenderer(winWidth*winScale, winHeight*winScale)
+AppState::AppState(unsigned int w, unsigned int h, unsigned int scale) : 
+    m_windowDisplayScale{scale},
+    m_notionalWindowWidth{w},
+    m_notionalWindowHeight{h},
+    m_quitApplication{false},
+    m_window(m_notionalWindowWidth * m_windowDisplayScale, m_notionalWindowHeight * m_windowDisplayScale), 
+    m_context(m_window.getWindow(), m_notionalWindowWidth* m_windowDisplayScale, m_notionalWindowHeight * m_windowDisplayScale),
+    m_fluid(m_notionalWindowWidth * m_windowDisplayScale, m_notionalWindowHeight * m_windowDisplayScale),
+    m_guiState(m_notionalWindowWidth, m_notionalWindowHeight)
 {
 }
 
+bool AppState::successfullyInitialised() const{
+    bool success = m_window.successfullyInitialised();
+    success &= m_context.successfullyInitialised();
+    success &= m_fluid.successfullyInitialised();
+    success &= m_guiState.successfullyInitialised();
+    return success;
+}
+
 void AppState::beginLoop(){
-    tStart = std::chrono::high_resolution_clock::now();
+    m_tStart = std::chrono::high_resolution_clock::now();
 }
 
 void AppState::mainLoop(){
-    // Handle event queue
+    SDL_Event event;
     while (SDL_PollEvent(&event)){
         handleEvents(event);
     }
-    // Get duration of current frame in microseconds
-    tNow = std::chrono::high_resolution_clock::now();
-    unsigned int frameTime = std::chrono::duration_cast<std::chrono::microseconds>(tNow - tStart).count();
 
-    // Cap frame length at 250 ms in case of lag, thereby to
-    // prevent simulation and display getting too out of sync
+    m_tNow = std::chrono::high_resolution_clock::now();
+    unsigned int frameTime = std::chrono::duration_cast<std::chrono::microseconds>(m_tNow - m_tStart).count();
+    m_tStart = m_tNow;
+
+    // Cap frame length to 250 ms
     if (frameTime > 250000){
         frameTime = 250000;
-        std::cout << "Frame hit maximum duration!\n";
     }
-
-    tStart = tNow;
     frame(frameTime);
 }
 
@@ -41,10 +49,7 @@ void AppState::handleEvents(SDL_Event const&  event){
         case SDL_KEYDOWN:
             switch(event.key.keysym.scancode){
                 case SDL_SCANCODE_F11:
-                    window.toggleFullScreen();
-                    break;
-                case SDL_SCANCODE_ESCAPE:
-                    quitApp();
+                    m_window.toggleFullScreen();
                     break;
                 default:
                     break;
@@ -53,34 +58,22 @@ void AppState::handleEvents(SDL_Event const&  event){
         default:
             break;
     }
-    guiState.handleEvents(event);
-    fluidRenderer.handleEvents(event);
-
+    m_fluid.handleEvents(event);
 }
 
 void AppState::frame(unsigned int frameTime){
-    // Clear buffer
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
-    //glEnable(GL_DEPTH_TEST);
-    // Draw fluid
-    fluidRenderer.frame(frameTime);
-
-    glDisable(GL_DEPTH_TEST);
-    // Draw GUI
-    guiState.frame(frameTime);
-    
-    // Swap buffers
-    SDL_GL_SwapWindow(window.getWindow());
-
-    // Update FPS counter
-    window.frame(frameTime);
+    m_fluid.frame(frameTime);
+    m_guiState.frame();
+    SDL_GL_SwapWindow(m_window.getWindow());
+    m_window.frame(frameTime);
 }
 
 void AppState::quitApp(){
-    quit = true;
-    #ifdef __EMSCRIPTEN__
-    //emscripten_cancel_main_loop();
-    #endif
+    m_quitApplication = true;
+}
+
+bool AppState::timeToQuit() const{
+    return m_quitApplication;
 }

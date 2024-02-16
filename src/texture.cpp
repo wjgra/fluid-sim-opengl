@@ -1,33 +1,34 @@
-#include "../include/texture.hpp"
+#include "texture.hpp"
 
-Texture::Texture(unsigned int w, unsigned int h) : width(w), height(h){
-    glGenTextures(1, &texture);
-    //glBindTexture(GL_TEXTURE_2D, texture);
+Texture::Texture(unsigned int w, unsigned int h, bool useNearest) : m_width(w), m_height(h){
+    glGenTextures(1, &m_texture);
     bind();
-    // Temp: different config for blank textures to save into than those used for text
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    //const unsigned int tileSize{512};
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    //glBindTexture(GL_TEXTURE_2D, 0);
+    if (!useNearest){
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    else{
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
+    
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m_width, m_height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     unbind();
 }
 
 Texture::Texture(const std::string& path){
-    glGenTextures(1, &texture);
-    //glBindTexture(GL_TEXTURE_2D, texture);
+    glGenTextures(1, &m_texture);
     bind();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);	
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR/*GL_NEAREST_MIPMAP_NEAREST*/);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR/*GL_NEAREST*/);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     // stbi_set_flip_vertically_on_load(true); 
-    unsigned char *data = stbi_load(path.c_str(), &width, &height, &numberOfChannels, 0);
-    // change to throw
+    unsigned char *data = stbi_load(path.c_str(), &m_width, &m_height, &m_numberOfChannels, 0);
     if (data)
     {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_width, m_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
     }
     else
@@ -39,22 +40,25 @@ Texture::Texture(const std::string& path){
 }
 
 Texture::~Texture(){
+    glDeleteTextures(1, &m_texture);
 }
 
-void Texture::bind(){
-    glBindTexture(GL_TEXTURE_2D, texture);
+void Texture::bind() const{
+    glBindTexture(GL_TEXTURE_2D, m_texture);
 }
 
-void Texture::unbind(){
+void Texture::unbind() const{
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-GLuint Texture::getLocation(){
-    return texture;
+GLuint Texture::getLocation() const{
+    return m_texture;
 }
 
 void Texture::resize(unsigned int width, unsigned int height){
     bind();
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    m_width = width;
+    m_height = height;
     unbind();
 }

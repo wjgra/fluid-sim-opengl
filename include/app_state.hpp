@@ -6,7 +6,7 @@
 #include <GL/gl.h>
 #include <GLES3/gl3.h>
 #else
-#include "../include/glad/glad.h"
+#include "glad/glad.h"
 #endif
 
 #include <SDL.h>
@@ -15,34 +15,36 @@
 #include <vector>
 #include <chrono>
 
-#include "../include/window.hpp"
-#include "../include/context.hpp"
-#include "../include/shader_program.hpp"
+#include "window.hpp"
+#include "context.hpp"
+#include "shader_program.hpp"
 
-#include "../include/gui_state.hpp"
-#include "../include/fluid_renderer.hpp"
+#include "gui_state.hpp"
+#include "fluid.hpp"
 
 class AppState{
+    unsigned int const m_windowDisplayScale;
+    unsigned int const m_notionalWindowWidth;
+    unsigned int const m_notionalWindowHeight;
 public:
-    AppState(unsigned int scale);
+    AppState(unsigned int w, unsigned int h, unsigned int scale = 1);
+    bool successfullyInitialised() const;
     void beginLoop();
     void mainLoop();
     void handleEvents(SDL_Event const&  event);
     void frame(unsigned int frameTime);
     void quitApp();
-    // Window/context state parameters
-    bool quit = false;
-    SDL_Event event;
-    std::chrono::time_point<std::chrono::high_resolution_clock> tStart, tNow;
-    // -- Viewport resolution is winScale * notional dimension
-    unsigned int const winScale = 1;
-    // -- Dimensions of notional window
-    int const winWidth = 640;
-    int const winHeight = 480;
-    // Ordering ensures context and shaders initialised before game objects and destroyed in reverse order
-    Window window;
-    Context context;
-    GUIState guiState;
-    FluidRenderer fluidRenderer;
+    bool timeToQuit() const;
+private:
+    bool m_quitApplication;
+    std::chrono::time_point<std::chrono::high_resolution_clock> m_tStart, m_tNow;
+    Window m_window;
+    Context m_context;
+    Fluid m_fluid;
+    /* FluidSimulator m_fluidSimulator;
+    FluidRenderer m_fluidRenderer;
+    NewFluidRenderer m_newFluidRenderer;
+    FluidController m_fluidController; */
+    GUIState m_guiState;
 };
 #endif
