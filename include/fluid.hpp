@@ -20,18 +20,17 @@
 #define GLM_FORCE_PURE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "texture.hpp"
 #include "shader_program.hpp"
-#include <glm/gtc/type_ptr.hpp>
-
 #include "drawable.hpp"
 #include "vertex_data.hpp"
 
 /* 
-    M - FluidSimulator: integrates fluid each frame, reacts to input provided via member fns
-    V - FluidRenderer: takes a reference to the levelset texture, is otherwise unaware of the model, displays the bg etc
-    C - Fluid: passes input to the simulator and ensures the renderer has access to the level set
+    M - FluidSimulator: Integrates the fluid each frame, reacting to input provided via public interface.
+    V - FluidRenderer: Takes a reference to the levelset texture and renders the fluid and background. It is otherwise unaware of the model.
+    C - Fluid: Passes input to the simulator via interface and ensures the renderer has access to the level set.
  */
 
 static int const gridSize = 32;
