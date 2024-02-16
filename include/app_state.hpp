@@ -6,7 +6,7 @@
 #include <GL/gl.h>
 #include <GLES3/gl3.h>
 #else
-#include "../include/glad/glad.h"
+#include "glad/glad.h"
 #endif
 
 #include <SDL.h>
@@ -15,15 +15,14 @@
 #include <vector>
 #include <chrono>
 
-#include "../include/window.hpp"
-#include "../include/context.hpp"
-#include "../include/shader_program.hpp"
+#include "window.hpp"
+#include "context.hpp"
+#include "shader_program.hpp"
 
-#include "../include/gui_state.hpp"
-#include "../include/fluid_renderer.hpp"
+#include "gui_state.hpp"
+#include "fluid.hpp"
 
 class AppState{
-private:
     unsigned int const m_windowDisplayScale;
     unsigned int const m_notionalWindowWidth;
     unsigned int const m_notionalWindowHeight;

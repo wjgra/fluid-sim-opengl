@@ -9,7 +9,6 @@
 #include <iostream>
 
 class Window{
-private:
     Uint32 const m_windowCreationFlags = SDL_WINDOW_OPENGL;
 public:
     Window(unsigned int width, unsigned int height);
