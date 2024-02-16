@@ -15,7 +15,7 @@ The window, context, app, shader program, texture, text rendering and GUI classe
 [RenderDoc](https://renderdoc.org/) was helpful for profiling.
 
 ### Issues
-As it stands, *FluidRenderer* is a pretty large monolithic class. Whilst it does make use of nested subclasses, I think refactoring it to break it down into smaller components in separate files would be a good exercise.
+~~As it stands, `FluidRenderer` is a pretty large monolithic class. Whilst it does make use of nested subclasses, I think refactoring it to break it down into smaller components would be a good exercise.~~ **Update 16/02/2024:** This has been refactored to use the [Model-View-Controller pattern](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller), with the eponynomous roles fulfilled by the classes `FluidSimulator`, `FluidRenderer` and `Fluid` respectively. I also tidied up the naming conventions/const-correctness and added the ability to rotate the scene using the arrow keys or WASD.
 
 There is also an issue with odd-even decoupling, which you can see (if you look carefully at the GIF above) as a 16x16 grid of periodic oscillations when the fluid surface is near-flat. This is caused by using collocated grids for the simulation, together with a second-order simulation kernel (which skips every other cell). This error is present in the original Nvidia demo, but it would be nice to eliminate it. There are various solutions 'known to the art', but not all are simple to implement.
 
