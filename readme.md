@@ -18,7 +18,7 @@ The window, context, app, shader program, texture, text rendering and GUI classe
 
 There is also an issue with odd-even decoupling, which you can see (if you look carefully at the GIF above) as a 16x16 grid of periodic oscillations when the fluid surface is near-flat. This is caused by using collocated grids for the simulation, together with a second-order simulation kernel (which skips every other cell). This error is present in the original Nvidia demo, but it would be nice to eliminate it. There are various solutions 'known to the art', but not all are simple to implement.
 
-**Update 16/02/2024:** Ideas for improving slab operation performance: removing redundant uniform variables (e.g. timestep from non-time-dependent inner slab ops); using UBOs so common uniforms only have to be updated once; and moving lookup coord calculation to the vertex shader. 
+**Update 16/02/2024:** Ideas for improving slab operation performance: removing redundant uniform variables (e.g. timestep from non-time-dependent inner slab ops); using UBOs so common uniforms only have to be updated once; and ~~moving lookup coord calculation to the vertex shader~~(this did not yield any performance benefits). 
 
 ## Dependencies and Compilation
 This project uses SDL for window creation and input handling, and OpenGL for rendering. [Glad](https://glad.dav1d.de/) is used for loading OpenGL API functions.
