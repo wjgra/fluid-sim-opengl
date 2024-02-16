@@ -4,7 +4,6 @@ This project is an interactive 3D fluid simulation with ray-traced reflection an
 
 Essentially, this is my version of the [Nvidia 'Box of Smoke' demo](https://www.nvidia.com/en-gb/geforce/community/demos/) as described in [GPU Gems 3](https://developer.nvidia.com/gpugems/gpugems3/part-v-physics-simulation/chapter-30-real-time-simulation-and-rendering-3d-fluids), based on the methodology of Stam, Jos. 1999. *"Stable Fluids."* In Proceedings of SIGGRAPH 99, *pp. 121–128*.
 
-
 ![Fluid simulation preview](https://www.wjgrace.co.uk/images/fluid_thumbnail.gif) 
 
 
@@ -18,6 +17,8 @@ The window, context, app, shader program, texture, text rendering and GUI classe
 ~~As it stands, `FluidRenderer` is a pretty large monolithic class. Whilst it does make use of nested subclasses, I think refactoring it to break it down into smaller components would be a good exercise.~~ **Update 16/02/2024:** This has been refactored to use the [Model-View-Controller pattern](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller), with the eponynomous roles fulfilled by the classes `FluidSimulator`, `FluidRenderer` and `Fluid` respectively. I also tidied up the naming conventions/const-correctness and added the ability to rotate the scene using the arrow keys or WASD.
 
 There is also an issue with odd-even decoupling, which you can see (if you look carefully at the GIF above) as a 16x16 grid of periodic oscillations when the fluid surface is near-flat. This is caused by using collocated grids for the simulation, together with a second-order simulation kernel (which skips every other cell). This error is present in the original Nvidia demo, but it would be nice to eliminate it. There are various solutions 'known to the art', but not all are simple to implement.
+
+**Update 16/02/2024:** Ideas for improving slab operation performance: removing redundant uniform variables (e.g. timestep from non-time-dependent inner slab ops); using UBOs so common uniforms only have to be updated once; and moving lookup coord calculation to the vertex shader. 
 
 ## Dependencies and Compilation
 This project uses SDL for window creation and input handling, and OpenGL for rendering. [Glad](https://glad.dav1d.de/) is used for loading OpenGL API functions.
