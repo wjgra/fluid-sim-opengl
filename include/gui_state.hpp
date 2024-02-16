@@ -5,13 +5,13 @@
 #include <GL/gl.h>
 #include <GLES3/gl3.h>
 #else
-#include "../include/glad/glad.h"
+#include "glad/glad.h"
 #endif
 
 #include <SDL.h>
 #include <SDL_opengl.h>
 
-#include "../include/text_renderer.hpp"
+#include "text_renderer.hpp"
 
 class GUIState{
 public:

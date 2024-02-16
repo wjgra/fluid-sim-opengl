@@ -8,7 +8,7 @@
 #include <GL/gl.h>
 #include <GLES3/gl3.h>
 #else
-#include "../include/glad/glad.h"
+#include "glad/glad.h"
 #endif
 
 #include <iostream>
@@ -20,8 +20,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "../include/texture.hpp"
-#include "../include/shader_program.hpp"
+#include "texture.hpp"
+#include "shader_program.hpp"
 
 class TextRenderer{
 public:

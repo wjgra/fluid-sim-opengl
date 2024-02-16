@@ -1,4 +1,4 @@
-#include "../include/window.hpp"
+#include "window.hpp"
 
 Window::Window(unsigned int width, unsigned int height) : m_winWidth{width}, m_winHeight{height}{
     try{

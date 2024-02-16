@@ -1,4 +1,4 @@
-#include "../include/shader_program.hpp"
+#include "shader_program.hpp"
 
 // To do: move file reading out of the constructor
 ShaderProgram::ShaderProgram(const std::string vertexPath, const std::string fragmentPath){

@@ -9,7 +9,7 @@
 #include <iostream>
 #include <chrono>
 
-#include "../include/app_state.hpp"
+#include "app_state.hpp"
 
 #ifdef __EMSCRIPTEN__
 void mainLoopCallback(void* appState){

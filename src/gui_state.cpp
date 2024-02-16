@@ -1,4 +1,4 @@
-#include "../include/gui_state.hpp"
+#include "gui_state.hpp"
 
 GUIState::GUIState(unsigned int width, unsigned int height) : m_textRen(width, height){
 }

@@ -1,4 +1,4 @@
-#include "../include/texture.hpp"
+#include "texture.hpp"
 
 Texture::Texture(unsigned int w, unsigned int h, bool useNearest) : m_width(w), m_height(h){
     glGenTextures(1, &m_texture);

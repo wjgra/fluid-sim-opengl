@@ -1,4 +1,4 @@
-#include "../include/context.hpp"
+#include "context.hpp"
 
 Context::Context(SDL_Window* window, unsigned int width, unsigned int height) : viewportWidth{width}, viewportHeight{height} {
     try{

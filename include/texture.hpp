@@ -5,10 +5,10 @@
 #include <GL/gl.h>
 #include <GLES3/gl3.h>
 #else
-#include "../include/glad/glad.h"
+#include "glad/glad.h"
 #endif
 
-#include "../include/stb_image.h"
+#include "stb_image.h"
 
 #include <iostream>
 #include <string>

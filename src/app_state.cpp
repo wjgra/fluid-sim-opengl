@@ -1,4 +1,4 @@
-#include "../include/app_state.hpp"
+#include "app_state.hpp"
 
 AppState::AppState(unsigned int w, unsigned int h, unsigned int scale) : 
     m_windowDisplayScale{scale},

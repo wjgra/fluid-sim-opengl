@@ -1,4 +1,4 @@
-#include "../include/text_renderer.hpp"
+#include "text_renderer.hpp"
 
 TextRenderer::TextRenderer(unsigned int w, unsigned int h) : 
     m_shader(".//shaders//text.vert", ".//shaders//text.frag"),
